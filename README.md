@@ -75,5 +75,5 @@ function HomePage() {
 
 ---
 <p align="center">
-  <img src="https://img.shields.io/badge/Maps-Temperature%20•%20Traffic%20•%20Altitude-0d1117?style=flat&labelColor=00f0ff" height="22">
+  <img src="https://img.shields.io/badge/README-Made%20with%20Love-ff4b5c?style=flat" height="22">
 </p>
