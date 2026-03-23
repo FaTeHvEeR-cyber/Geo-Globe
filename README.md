@@ -75,27 +75,5 @@ function HomePage() {
 
 ---
 <p align="center">
-  <img src="data:image/svg+xml;utf8,
-  <svg xmlns='http://www.w3.org/2000/svg' width='240' height='40'>
-    <defs>
-      <linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='0%'>
-        <stop offset='0%' stop-color='%23ff00cc'>
-          <animate attributeName='stop-color'
-                   values='%23ff00cc;%2300f0ff;%23ff00cc'
-                   dur='4s' repeatCount='indefinite'/>
-        </stop>
-        <stop offset='100%' stop-color='%2300f0ff'>
-          <animate attributeName='stop-color'
-                   values='%2300f0ff;%23ff00cc;%2300f0ff'
-                   dur='4s' repeatCount='indefinite'/>
-        </stop>
-      </linearGradient>
-    </defs>
-    <rect x='2' y='2' width='236' height='36' rx='12'
-          fill='url(%23grad)'/>
-    <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
-          fill='white' font-size='14' font-family='Arial, sans-serif'>
-      README with Love
-    </text>
-  </svg>" />
+  <img src="https://img.shields.io/badge/README-Made%20with%20Love-red" height="20">
 </p>
