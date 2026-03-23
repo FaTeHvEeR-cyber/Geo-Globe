@@ -69,9 +69,6 @@ function HomePage() {
 }
 ```
 
-## Contributing
-
-*(Placeholder for Contribution Guidelines. This section would typically link to a `CONTRIBUTING.md` file or provide instructions on how to contribute.)*
 
 ## License
 
