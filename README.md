@@ -75,5 +75,5 @@ function HomePage() {
 
 ---
 <p align="center">
-  <img src="https://img.shields.io/badge/✨%20README-Made%20with%20Love-8b5cf6?style=for-the-badge&logoColor=white" height="28">
+  <img src="https://img.shields.io/badge/README-Made%20with%20Love-0f172a?style=for-the-badge&logo=github&logoColor=white" height="28">
 </p>
