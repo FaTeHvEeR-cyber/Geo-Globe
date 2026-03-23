@@ -75,5 +75,5 @@ function HomePage() {
 
 ---
 <p align="center">
-  <img src="https://img.shields.io/badge/GeoGlow-Neon%20Powered-00f0ff?style=flat" height="22">
+  <img src="https://img.shields.io/badge/GeoGlow-Retro%20Vibes-ff00cc?style=for-the-badge" height="28">
 </p>
