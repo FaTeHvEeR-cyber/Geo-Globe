@@ -78,16 +78,20 @@ function HomePage() {
   <img src="data:image/svg+xml;utf8,
   <svg xmlns='http://www.w3.org/2000/svg' width='220' height='40'>
     <defs>
-      <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
-        <stop offset='0%' stop-color='%23ffffff' stop-opacity='0.25'/>
-        <stop offset='100%' stop-color='%23ffffff' stop-opacity='0.05'/>
-      </linearGradient>
+      <filter id='glow'>
+        <feGaussianBlur stdDeviation='3.5' result='coloredBlur'/>
+        <feMerge>
+          <feMergeNode in='coloredBlur'/>
+          <feMergeNode in='SourceGraphic'/>
+        </feMerge>
+      </filter>
     </defs>
-    <rect x='1' y='1' width='218' height='38' rx='12'
-          fill='url(%23bg)' stroke='%23ffffff33' stroke-width='1'/>
+    <rect x='2' y='2' width='216' height='36' rx='10'
+          fill='%230d1117' stroke='%2300f0ff' stroke-width='2'
+          filter='url(%23glow)'/>
     <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
-          fill='white' font-size='14' font-family='Arial, sans-serif'>
-      README with Love
+          fill='%2300f0ff' font-size='14' font-family='Arial, sans-serif'>
+      Made with Love
     </text>
   </svg>" />
 </p>
