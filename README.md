@@ -74,9 +74,6 @@ function HomePage() {
 *(Placeholder for License Information. As no license is specified, this section is currently omitted.)*
 
 ---
-
 <p align="center">
-  
-    <img alt="Made with love" height="20">
-  
+  <img  alt="README with love" height="20">
 </p>
