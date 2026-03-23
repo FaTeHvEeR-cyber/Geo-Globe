@@ -75,5 +75,5 @@ function HomePage() {
 
 ---
 <p align="center">
-  <img src="https://img.shields.io/badge/GeoGlow-Retro%20Vibes-ff00cc?style=for-the-badge" height="28">
+  <img src="https://img.shields.io/badge/Maps-Temperature%20•%20Traffic%20•%20Altitude-0d1117?style=flat&labelColor=00f0ff" height="22">
 </p>
