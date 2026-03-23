@@ -74,4 +74,6 @@ function HomePage() {
 *(Placeholder for License Information. As no license is specified, this section is currently omitted.)*
 
 ---
-<p align="center"> <a href="https://readmeforge.app?utm_source=badge"> <img src="https://readmeforge.app/badge.svg" alt="Made with ReadmeForge" height="20"> </a> </p>
+<p align="center">
+  <img src="https://img.shields.io/badge/README-Made%20with%20Love-black?style=for-the-badge&logoColor=white" height="28">
+</p>
