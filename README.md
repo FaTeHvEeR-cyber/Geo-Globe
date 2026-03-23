@@ -51,7 +51,6 @@ To set up Geo-Globe locally, follow these steps:
 
 ## Usage Examples
 
-*(Placeholder for specific usage examples. This section would typically include code snippets demonstrating key functionalities of the application.)*
 
 For example, to initialize a map with a specific view:
 
@@ -77,7 +76,7 @@ function HomePage() {
 ---
 
 <p align="center">
-  <a href="https://readmeforge.app?utm_source=badge">
-    <img src="https://readmeforge.app/badge.svg" alt="Made with love" height="20">
-  </a>
+  
+    <img alt="Made with love" height="20">
+  
 </p>
