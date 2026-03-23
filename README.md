@@ -76,22 +76,26 @@ function HomePage() {
 ---
 <p align="center">
   <img src="data:image/svg+xml;utf8,
-  <svg xmlns='http://www.w3.org/2000/svg' width='220' height='40'>
+  <svg xmlns='http://www.w3.org/2000/svg' width='240' height='40'>
     <defs>
-      <filter id='glow'>
-        <feGaussianBlur stdDeviation='3.5' result='coloredBlur'/>
-        <feMerge>
-          <feMergeNode in='coloredBlur'/>
-          <feMergeNode in='SourceGraphic'/>
-        </feMerge>
-      </filter>
+      <linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='0%'>
+        <stop offset='0%' stop-color='%23ff00cc'>
+          <animate attributeName='stop-color'
+                   values='%23ff00cc;%2300f0ff;%23ff00cc'
+                   dur='4s' repeatCount='indefinite'/>
+        </stop>
+        <stop offset='100%' stop-color='%2300f0ff'>
+          <animate attributeName='stop-color'
+                   values='%2300f0ff;%23ff00cc;%2300f0ff'
+                   dur='4s' repeatCount='indefinite'/>
+        </stop>
+      </linearGradient>
     </defs>
-    <rect x='2' y='2' width='216' height='36' rx='10'
-          fill='%230d1117' stroke='%2300f0ff' stroke-width='2'
-          filter='url(%23glow)'/>
+    <rect x='2' y='2' width='236' height='36' rx='12'
+          fill='url(%23grad)'/>
     <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
-          fill='%2300f0ff' font-size='14' font-family='Arial, sans-serif'>
-      Made with Love
+          fill='white' font-size='14' font-family='Arial, sans-serif'>
+      README with Love
     </text>
   </svg>" />
 </p>
