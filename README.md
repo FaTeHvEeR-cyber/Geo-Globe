@@ -78,14 +78,6 @@ bun run build
 bun start
 ```
 
-
-- **Code Generation** - Generate components, pages, and features instantly
-- **UI Development** - Create beautiful interfaces with AI assistance  
-- **Bug Fixing** - Identify and resolve issues with intelligent suggestions
-- **Documentation** - Auto-generate comprehensive documentation
-- **Optimization** - Performance improvements and best practices
-
-
 ## 📁 Project Structure
 
 ```
