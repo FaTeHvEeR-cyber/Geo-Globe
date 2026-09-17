@@ -1,141 +1,173 @@
-# 🚀 Welcome to Z.ai Code Scaffold
+# Geo-Globe
 
-A modern, production-ready web application scaffold powered by cutting-edge technologies, designed to accelerate your development with [Z.ai](https://chat.z.ai)'s AI-powered coding assistance.
+Geo-Globe is a sophisticated web application built with a modern technology stack, designed to provide advanced geospatial functionalities.
 
-## ✨ Technology Stack
+## Features
 
-This scaffold provides a robust foundation built with:
+*   **Advanced Geospatial Visualization:** Leverages CesiumJS for high-performance 3D globe rendering and geospatial data visualization.
+*   **Interactive Data Handling:** Integrates with `@turf/turf` for comprehensive geospatial analysis and manipulation.
+*   **Modern UI Components:** Utilizes Radix UI primitives and Tailwind CSS for a clean, accessible, and responsive user interface.
+*   **State Management:** Employs Zustand for efficient and scalable global state management.
+*   **Data Fetching and Caching:** Implements React Query (`@tanstack/react-query`) for robust data fetching, caching, and synchronization.
+*   **Form Management:** Integrates React Hook Form (`react-hook-form`) with Zod (`zod`) for powerful and type-safe form handling.
+*   **Drag and Drop Functionality:** Features `@dnd-kit` for intuitive drag-and-drop interactions within the application.
+*   **Rich Text Editing:** Includes `@mdxeditor/editor` for advanced rich text editing capabilities.
+*   **Database Integration:** Uses Prisma ORM for seamless interaction with the database, with a sample SQLite database (`db/custom.db`) included.
+*   **API Routes and Server Components:** Built on Next.js with support for both server and client components, enabling flexible application architecture.
+*   **Theming and Dark Mode:** Supports dynamic theming and dark mode via `next-themes`.
+*   **Real-time Communication:** Includes examples for WebSocket integration for real-time data updates.
 
-### 🎯 Core Framework
-- **⚡ Next.js 16** - The React framework for production with App Router
-- **📘 TypeScript 5** - Type-safe JavaScript for better developer experience
-- **🎨 Tailwind CSS 4** - Utility-first CSS framework for rapid UI development
+## Installation
 
-### 🧩 UI Components & Styling
-- **🧩 shadcn/ui** - High-quality, accessible components built on Radix UI
-- **🎯 Lucide React** - Beautiful & consistent icon library
-- **🌈 Framer Motion** - Production-ready motion library for React
-- **🎨 Next Themes** - Perfect dark mode in 2 lines of code
+This project uses Bun as its package manager and runtime. Ensure you have Bun installed.
 
-### 📋 Forms & Validation
-- **🎣 React Hook Form** - Performant forms with easy validation
-- **✅ Zod** - TypeScript-first schema validation
+### Prerequisites
 
-### 🔄 State Management & Data Fetching
-- **🐻 Zustand** - Simple, scalable state management
-- **🔄 TanStack Query** - Powerful data synchronization for React
-- **🌐 Fetch** - Promise-based HTTP request
+*   [Bun](https://bun.sh/) (version 1.x recommended)
 
-### 🗄️ Database & Backend
-- **🗄️ Prisma** - Next-generation TypeScript ORM
-- **🔐 NextAuth.js** - Complete open-source authentication solution
+### Steps
 
-### 🎨 Advanced UI Features
-- **📊 TanStack Table** - Headless UI for building tables and datagrids
-- **🖱️ DND Kit** - Modern drag and drop toolkit for React
-- **📊 Recharts** - Redefined chart library built with React and D3
-- **🖼️ Sharp** - High performance image processing
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/FaTeHvEeR-cyber/Geo-Globe.git
+    cd Geo-Globe
+    ```
 
-### 🌍 Internationalization & Utilities
-- **🌍 Next Intl** - Internationalization library for Next.js
-- **📅 Date-fns** - Modern JavaScript date utility library
-- **🪝 ReactUse** - Collection of essential React hooks for modern development
+2.  **Install dependencies:**
+    ```bash
+    bun install
+    ```
 
-## 🎯 Why This Scaffold?
+3.  **Set up environment variables:**
+    Create a `.env` file in the root of the project and populate it with your environment-specific variables. Refer to `.env.example` (if available) for a template.
 
-- **🏎️ Fast Development** - Pre-configured tooling and best practices
-- **🎨 Beautiful UI** - Complete shadcn/ui component library with advanced interactions
-- **🔒 Type Safety** - Full TypeScript configuration with Zod validation
-- **📱 Responsive** - Mobile-first design principles with smooth animations
-- **🗄️ Database Ready** - Prisma ORM configured for rapid backend development
-- **🔐 Auth Included** - NextAuth.js for secure authentication flows
-- **📊 Data Visualization** - Charts, tables, and drag-and-drop functionality
-- **🌍 i18n Ready** - Multi-language support with Next Intl
-- **🚀 Production Ready** - Optimized build and deployment settings
-- **🤖 AI-Friendly** - Structured codebase perfect for AI assistance
+    ```bash
+    # Example .env file content (adjust as needed)
+    DATABASE_URL="file:./db/custom.db"
+    # Add any other required environment variables
+    ```
 
-## 🚀 Quick Start
+4.  **Run database migrations (if applicable):**
+    If Prisma is used for database management, apply migrations:
+    ```bash
+    bun run prisma migrate deploy
+    ```
+
+5.  **Start the development server:**
+    ```bash
+    bun run dev
+    ```
+
+    The application will be accessible at `http://localhost:3000` by default.
+
+## Usage
+
+### Development
+
+To run the application in development mode, simply execute:
 
 ```bash
-# Install dependencies
-bun install
-
-# Start development server
 bun run dev
+```
 
-# Build for production
+This command will start a development server with hot-reloading enabled.
+
+### Building for Production
+
+To create a production-ready build of the application:
+
+```bash
 bun run build
-
-# Start production server
-bun start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your application running.
+This command generates an optimized build in the `.next` directory.
 
-## 🤖 Powered by Z.ai
+### Starting a Production Server
 
-This scaffold is optimized for use with [Z.ai](https://chat.z.ai) - your AI assistant for:
+After building, you can start a production server using:
 
-- **💻 Code Generation** - Generate components, pages, and features instantly
-- **🎨 UI Development** - Create beautiful interfaces with AI assistance  
-- **🔧 Bug Fixing** - Identify and resolve issues with intelligent suggestions
-- **📝 Documentation** - Auto-generate comprehensive documentation
-- **🚀 Optimization** - Performance improvements and best practices
-
-Ready to build something amazing? Start chatting with Z.ai at [chat.z.ai](https://chat.z.ai) and experience the future of AI-powered development!
-
-## 📁 Project Structure
-
-```
-src/
-├── app/                 # Next.js App Router pages
-├── components/          # Reusable React components
-│   └── ui/             # shadcn/ui components
-├── hooks/              # Custom React hooks
-└── lib/                # Utility functions and configurations
+```bash
+bun run start
 ```
 
-## 🎨 Available Features & Components
+This command serves the application from the production build.
 
-This scaffold includes a comprehensive set of modern web development tools:
+### Running Scripts
 
-### 🧩 UI Components (shadcn/ui)
-- **Layout**: Card, Separator, Aspect Ratio, Resizable Panels
-- **Forms**: Input, Textarea, Select, Checkbox, Radio Group, Switch
-- **Feedback**: Alert, Toast (Sonner), Progress, Skeleton
-- **Navigation**: Breadcrumb, Menubar, Navigation Menu, Pagination
-- **Overlay**: Dialog, Sheet, Popover, Tooltip, Hover Card
-- **Data Display**: Badge, Avatar, Calendar
+The project includes several utility scripts in the `.zscripts/` directory. For example:
 
-### 📊 Advanced Data Features
-- **Tables**: Powerful data tables with sorting, filtering, pagination (TanStack Table)
-- **Charts**: Beautiful visualizations with Recharts
-- **Forms**: Type-safe forms with React Hook Form + Zod validation
+*   **Build all mini-services:**
+    ```bash
+    ./.zscripts/mini-services-build.sh
+    ```
+*   **Start all mini-services:**
+    ```bash
+    ./.zscripts/mini-services-start.sh
+    ```
 
-### 🎨 Interactive Features
-- **Animations**: Smooth micro-interactions with Framer Motion
-- **Drag & Drop**: Modern drag-and-drop functionality with DND Kit
-- **Theme Switching**: Built-in dark/light mode support
+## Configuration
 
-### 🔐 Backend Integration
-- **Authentication**: Ready-to-use auth flows with NextAuth.js
-- **Database**: Type-safe database operations with Prisma
-- **API Client**: HTTP requests with Fetch + TanStack Query
-- **State Management**: Simple and scalable with Zustand
+### Environment Variables
 
-### 🌍 Production Features
-- **Internationalization**: Multi-language support with Next Intl
-- **Image Optimization**: Automatic image processing with Sharp
-- **Type Safety**: End-to-end TypeScript with Zod validation
-- **Essential Hooks**: 100+ useful React hooks with ReactUse for common patterns
+The application's behavior can be configured through environment variables. Key variables include:
 
-## 🤝 Get Started with Z.ai
+*   `DATABASE_URL`: The connection string for the primary database.
+*   `NEXT_PUBLIC_API_URL`: The base URL for public-facing API endpoints.
 
-1. **Clone this scaffold** to jumpstart your project
-2. **Visit [chat.z.ai](https://chat.z.ai)** to access your AI coding assistant
-3. **Start building** with intelligent code generation and assistance
-4. **Deploy with confidence** using the production-ready setup
+Ensure these variables are set in your `.env` file or your deployment environment.
+
+### `next.config.ts`
+
+The `next.config.ts` file allows for advanced Next.js configuration, including:
+
+*   Module aliases
+*   Image optimization settings
+*   Redirects and rewrites
+*   Webpack configuration overrides
+
+Refer to the `next.config.ts` file for specific configuration options.
+
+### Tailwind CSS
+
+Tailwind CSS is configured in `tailwind.config.ts` and `postcss.config.mjs`. Customizations to the design system, such as colors, fonts, and spacing, can be made here.
+
+## Examples
+
+### WebSocket Example
+
+This project includes an example demonstrating WebSocket communication.
+
+**Frontend (`examples/websocket/frontend.tsx`):**
+This component establishes a WebSocket connection and sends/receives messages.
+
+**Server (`examples/websocket/server.ts`):**
+This script sets up a basic WebSocket server to handle connections and message broadcasting.
+
+To run the WebSocket example:
+
+1.  Ensure the main application is running.
+2.  Run the WebSocket server script:
+    ```bash
+    bun run examples/websocket/server.ts
+    ```
+3.  Interact with the frontend component to test the WebSocket functionality.
+
+## License
+
+No license is specified for this project.
+
+## Contributing
+
+Contributions are welcome. Please refer to the `CONTRIBUTING.md` file (if available) for guidelines.
+
+## Support
+
+If you encounter any issues or have questions, please open an issue on the GitHub repository.
 
 ---
 
-Built with ❤️ for the developer community. Supercharged by [Z.ai](https://chat.z.ai) 🚀
+<p align="center">
+  <a href="https://readmeforge.app?utm_source=badge">
+    <img src="https://readmeforge.app/badge.svg" alt="Made with ReadmeForge" height="20">
+  </a>
+</p>
