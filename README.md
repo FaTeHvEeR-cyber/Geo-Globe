@@ -40,8 +40,3 @@ This project does not currently have a specified license.
 
 ---
 
-<p align="center">
-  <a href="https://readmeforge.app?utm_source=badge">
-    <img src="https://readmeforge.app/badge.svg" alt="Made with ReadmeForge" height="20">
-  </a>
-</p>
