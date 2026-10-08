@@ -274,11 +274,11 @@ function TimeSection() {
   const { time, setTimeSpeed, toggleTimePlay, setShowDayNight } = useEarthStore();
   
   return (
-    // <div className="space-y-3">
-    //   <div className="flex items-center justify-between py-2">
-    //     <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
-    //     <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
-    //   </div>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between py-2">
+        <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
+        <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
+      </div>
       
       {time.showDayNight && (
         <div className="flex items-center gap-2">
