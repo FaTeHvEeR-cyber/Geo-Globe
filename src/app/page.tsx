@@ -176,8 +176,8 @@ function SideNavPanel() {
             <span className="text-[8px] font-headline text-neutral-400">DECRYPT</span>
           </div>
         </div>
-      </div>
-    </aside> */
+      </div> */
+    </aside> 
   );
 }
 
