@@ -1,180 +1,577 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { useEarthStore, savedState } from '@/store/earth';
 import { defaults, readSaved, STORAGE_KEY } from '@/lib/earth/persistence';
-import { formatArea, formatDistance, measure } from '@/lib/earth/measurements';
-import { MAX_FILE_BYTES } from '@/lib/earth/geojson';
 import { weatherService, type WeatherData } from '@/lib/earth/weather-service';
-import type { FeatureCollection } from 'geojson';
+import { cn } from '@/lib/utils';
+import {
+  Activity,
+  Bell,
+  Cloud,
+  Crosshair,
+  Download,
+  Droplets,
+  Eye,
+  FastForward,
+  Home,
+  Key,
+  Layers,
+  Loader2,
+  MapPin,
+  Maximize2,
+  Mountain,
+  Pause,
+  Play,
+  Radio,
+  RefreshCw,
+  Rewind,
+  Search,
+  Settings2,
+  Signal,
+  Satellite,
+  Thermometer,
+  Terminal,
+  Wind,
+} from 'lucide-react';
+import type { Coordinates } from '@/types/earth';
 
-const Globe = dynamic(() => import('@/components/earth/core/CesiumGlobeComponent'), { ssr: false, loading: () => <div role="status" className="p-8">Loading viewer…</div> });
-const flyTo = (longitude: number, latitude: number, height = 50000) => window.dispatchEvent(new CustomEvent('flyToLocation', { detail: { longitude, latitude, height } }));
-function download(name: string, data: unknown) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+const Globe = dynamic(() => import('@/components/earth/core/CesiumGlobeComponent'), {
+  ssr: false,
+  loading: () => <div role="status" className="p-8 text-[#39FF14]">Loading viewer…</div>,
+});
+
+const IMAGERY_OPTIONS = [
+  { id: 'osm', name: 'VECTOR', icon: Layers },
+  { id: 'natural', name: 'NATURAL', icon: Mountain },
+  { id: 'dark', name: 'DARK', icon: Eye },
+  { id: 'positron', name: 'POSITRON', icon: Satellite },
+] as const;
+
+const VISION_OPTIONS = [
+  { id: 'normal', name: 'Normal', icon: Eye },
+  { id: 'night-vision', name: 'Night Vision', icon: Activity },
+  { id: 'thermal', name: 'Thermal', icon: Thermometer },
+  { id: 'wireframe', name: 'Wireframe', icon: Layers },
+] as const;
 
 function Persistence() {
   useEffect(() => {
     const store = useEarthStore;
-    try { const data = localStorage.getItem(STORAGE_KEY); store.getState().hydrate(data ? readSaved(data) : defaults); }
-    catch { store.getState().hydrate(defaults); store.getState().setMessage('Saved browser data could not be loaded. Defaults are active; export a backup before closing.'); }
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      store.getState().hydrate(data ? readSaved(data) : defaults);
+    } catch {
+      store.getState().hydrate(defaults);
+      store.getState().setMessage('Saved browser data could not be loaded. Defaults are active.');
+    }
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     let dirty = false;
     const flush = () => {
       if (!dirty) return;
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState(store.getState()))); dirty = false; }
-      catch { store.getState().setMessage('Browser storage is unavailable or full. Export your pins and settings to keep a backup.'); }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState(store.getState())));
+        dirty = false;
+      } catch {
+        store.getState().setMessage('Browser storage is unavailable or full. Export your pins and settings before closing.');
+      }
     };
-    const unsubscribe = store.subscribe((s, p) => {
-      if (s.markers === p.markers && s.camera === p.camera && s.basemap === p.basemap && s.vision === p.vision && s.dayNight === p.dayNight) return;
-      dirty = true; clearTimeout(timer); timer = setTimeout(flush, 400);
+
+    const unsubscribe = store.subscribe((state, previous) => {
+      if (state.markers === previous.markers && state.camera === previous.camera && state.basemap === previous.basemap && state.vision === previous.vision && state.dayNight === previous.dayNight) {
+        return;
+      }
+      dirty = true;
+      clearTimeout(timer);
+      timer = setTimeout(flush, 400);
     });
+
     window.addEventListener('pagehide', flush);
-    return () => { clearTimeout(timer); unsubscribe(); window.removeEventListener('pagehide', flush); flush(); };
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
   }, []);
+
   return null;
 }
 
-function Search() {
+function WeatherSection() {
+  const { dayNight, setPreferences } = useEarthStore();
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const coords = (event as CustomEvent<Coordinates>).detail;
+      setCoordinates(coords);
+    };
+
+    window.addEventListener('globeCoordinates', handle as EventListener);
+    return () => window.removeEventListener('globeCoordinates', handle as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!coordinates) return;
+
+    let active = true;
+    const fetchWeather = async () => {
+      setLoading(true);
+      const data = await weatherService.getWeather(coordinates.latitude, coordinates.longitude);
+      if (active) setWeatherData(data);
+      setLoading(false);
+    };
+
+    fetchWeather();
+    return () => {
+      active = false;
+    };
+  }, [coordinates]);
+
+  const current = weatherData?.current;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between py-2">
+        <span className="text-[10px] font-headline text-neutral-400 uppercase">Cloud Layer</span>
+        <Switch checked={dayNight} onCheckedChange={(checked) => setPreferences({ dayNight: checked })} />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-[#39FF14]" />
+        </div>
+      ) : current ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 rounded border border-[#39FF14]/10 bg-[#262626] p-2">
+            <img
+              src={weatherService.getWeatherIconUrl(current.weather_code, current.is_day)}
+              alt="Weather"
+              width={32}
+              height={32}
+            />
+            <div>
+              <div className="text-lg font-bold text-white">{Math.round(current.temp)}°C</div>
+              <div className="text-[9px] uppercase text-neutral-400">
+                {weatherService.getWeatherInfo(current.weather_code).description}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 text-[9px]">
+            <div className="flex items-center gap-1 rounded border border-[#39FF14]/5 bg-[#262626] p-1.5">
+              <Thermometer className="h-3 w-3 text-[#ff9f4a]" />
+              <span className="text-neutral-400">Feels:</span>
+              <span className="text-white">{Math.round(current.feels_like)}°</span>
+            </div>
+            <div className="flex items-center gap-1 rounded border border-[#39FF14]/5 bg-[#262626] p-1.5">
+              <Droplets className="h-3 w-3 text-[#00E3FD]" />
+              <span className="text-neutral-400">Hum:</span>
+              <span className="text-white">{current.humidity}%</span>
+            </div>
+            <div className="flex items-center gap-1 rounded border border-[#39FF14]/5 bg-[#262626] p-1.5">
+              <Wind className="h-3 w-3 text-[#00E3FD]" />
+              <span className="text-neutral-400">Wind:</span>
+              <span className="text-white">{Math.round(current.wind_speed)}km/h</span>
+            </div>
+            <div className="flex items-center gap-1 rounded border border-[#39FF14]/5 bg-[#262626] p-1.5">
+              <Cloud className="h-3 w-3 text-neutral-400" />
+              <span className="text-neutral-400">Cloud:</span>
+              <span className="text-white">{current.clouds}%</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="py-4 text-center text-[10px] text-neutral-500">Hover over globe for weather data</div>
+      )}
+    </div>
+  );
+}
+
+function TimeSection() {
+  const { dayNight, playing, speed } = useEarthStore();
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between py-2">
+        <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
+        <Switch checked={dayNight} onCheckedChange={(checked) => useEarthStore.setState({ dayNight: checked })} />
+      </div>
+
+      {dayNight && (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => useEarthStore.setState((state) => ({ speed: Math.max(1, state.speed / 10) }))}>
+            <Rewind className="h-3 w-3 text-[#39FF14]" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => useEarthStore.setState((state) => ({ playing: !state.playing }))}>
+            {playing ? <Pause className="h-3 w-3 text-[#39FF14]" /> : <Play className="h-3 w-3 text-[#39FF14]" />}
+          </Button>
+          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => useEarthStore.setState((state) => ({ speed: state.speed * 10 }))}>
+            <FastForward className="h-3 w-3 text-[#39FF14]" />
+          </Button>
+          <span className="ml-1 text-[10px] font-headline text-[#39FF14]">{speed}x</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TelemetryPanel({ coordinates, altitude }: { coordinates: Coordinates | null; altitude: number }) {
+  const { vision, basemap, dayNight } = useEarthStore();
+  const formatAlt = (m: number) => {
+    if (m > 1000000) return `${(m / 1000000).toFixed(0)}M m`;
+    if (m > 1000) return `${(m / 1000).toFixed(1)} km`;
+    return `${m.toFixed(0)} m`;
+  };
+
+  return (
+    <div className="absolute bottom-20 left-6 z-10 w-72 border border-[#39FF14]/10 bg-black/40 p-4 font-headline shadow-2xl backdrop-blur-lg">
+      <div className="mb-4 flex items-start justify-between">
+        <div className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-widest text-[#39FF14]">LAT_LON_FEED</span>
+          <span className="text-base font-bold tracking-tighter text-white">
+            {coordinates ? `${coordinates.latitude.toFixed(4)}°, ${coordinates.longitude.toFixed(4)}°` : '---°, ---°'}
+          </span>
+        </div>
+        <div className="bg-[#2be800] px-2 py-1 text-[9px] font-black text-black">LIVE</div>
+      </div>
+      <div className="grid grid-cols-2 gap-4 text-[10px] text-neutral-400">
+        <div className="border-l border-[#39FF14]/30 pl-2">
+          <span className="uppercase">Altitude</span>
+          <span className="font-mono text-white">{formatAlt(altitude)}</span>
+        </div>
+        <div className="border-l border-[#39FF14]/30 pl-2">
+          <span className="uppercase">Vision</span>
+          <span className="font-mono uppercase text-[#39FF14]">{vision}</span>
+        </div>
+        <div className="border-l border-[#39FF14]/30 pl-2">
+          <span className="uppercase">Layer</span>
+          <span className="font-mono uppercase text-[#00E3FD]">{basemap}</span>
+        </div>
+        <div className="border-l border-[#39FF14]/30 pl-2">
+          <span className="uppercase">Status</span>
+          <span className="font-mono text-[#39FF14]">{dayNight ? 'DAY' : 'NIGHT'}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavButtons() {
+  return (
+    <div className="absolute right-6 top-20 z-10 flex flex-col gap-1">
+      <div className="flex flex-col gap-1 border border-[#00E3FD]/20 bg-black/60 p-1.5 backdrop-blur-md">
+        <Button variant="ghost" size="icon" className="h-9 w-9 border-0 bg-[#1f2020] text-[#00E3FD] transition-all hover:bg-[#00E3FD] hover:text-black" onClick={() => window.dispatchEvent(new CustomEvent('flyToLocation', { detail: { longitude: 0, latitude: 20, height: 20000000 } }))}>
+          <Home className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 border-0 bg-[#1f2020] text-[#00E3FD] transition-all hover:bg-[#00E3FD] hover:text-black">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 border-0 bg-[#1f2020] text-[#00E3FD] transition-all hover:bg-[#00E3FD] hover:text-black">
+          <Download className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 border-0 bg-[#1f2020] text-[#00E3FD] transition-all hover:bg-[#00E3FD] hover:text-black">
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SearchBar() {
   const [query, setQuery] = useState('');
-  const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<{ place_id: number; display_name: string; lat: string; lon: string }[]>([]);
+  const [loading, setLoading] = useState(false);
   const last = useRef(0);
   const cache = useRef(new Map<string, typeof results>());
   const abort = useRef<AbortController | null>(null);
+
   useEffect(() => () => abort.current?.abort(), []);
-  const search = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const text = query.trim(); if (!text || busy || Date.now() - last.current < 1100) return;
-    if (cache.current.has(text)) { setResults(cache.current.get(text)!); return; }
-    last.current = Date.now(); setBusy(true); abort.current?.abort(); abort.current = new AbortController();
+
+  const searchLocation = async (searchQuery: string) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || Date.now() - last.current < 1100) return;
+
+    if (cache.current.has(trimmed)) {
+      setResults(cache.current.get(trimmed)!);
+      return;
+    }
+
+    last.current = Date.now();
+    setLoading(true);
+    abort.current?.abort();
+    abort.current = new AbortController();
+
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`, { signal: abort.current.signal });
-      if (!response.ok) throw new Error('Search is unavailable. Try again later.');
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}&limit=5&accept-language=en`, {
+        signal: abort.current.signal,
+      });
       const data = await response.json();
-      if (!Array.isArray(data)) throw new Error('Unexpected search response.');
-      const valid = data.filter(r => Number.isFinite(Number(r.lat)) && Number.isFinite(Number(r.lon)) && typeof r.display_name === 'string');
-      if (cache.current.size >= 30) cache.current.clear();
-      cache.current.set(text, valid); setResults(valid);
-      if (!valid.length) useEarthStore.getState().setMessage('No locations found.');
-    } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) useEarthStore.getState().setMessage(error instanceof Error ? error.message : 'Search failed.'); }
-    finally { setBusy(false); }
+      const valid = Array.isArray(data) ? data.filter((result) => Number.isFinite(Number(result.lat)) && Number.isFinite(Number(result.lon))) : [];
+      cache.current.set(trimmed, valid);
+      setResults(valid);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   };
-  return <form onSubmit={search} className="relative flex gap-2">
-    <input aria-label="Search places" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search places…" className="field min-w-0 w-36 sm:w-56" />
-    <button className="control" disabled={busy}>{busy ? 'Searching…' : 'Search'}</button>
-    {!!results.length && <div className="absolute top-full right-0 z-50 mt-2 w-80 max-w-[90vw] border border-green-500/30 bg-slate-950 p-2 shadow-xl">
-      <button type="button" className="control mb-2" onClick={() => setResults([])}>Close results</button>
-      {results.map(r => <button type="button" className="block w-full border-t border-white/10 p-3 text-left text-sm hover:bg-green-500/10" key={r.place_id} onClick={() => { flyTo(Number(r.lon), Number(r.lat)); setResults([]); }}>{r.display_name}</button>)}
-      <p className="p-2 text-xs text-slate-400">Search © OpenStreetMap contributors</p>
-    </div>}
-  </form>;
+
+  return (
+    <div className="relative hidden items-center gap-2 border border-[#484848]/30 bg-[#000] px-3 py-1.5 md:flex">
+      <Search className="h-3.5 w-3.5 text-[#39FF14]" />
+      <Input
+        type="text"
+        placeholder="COORD_SEARCH..."
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            void searchLocation(query);
+          }
+        }}
+        className="h-5 w-40 border-none bg-transparent p-0 text-[10px] uppercase text-white placeholder:text-neutral-500 focus-visible:ring-0 focus:ring-0"
+      />
+      {loading && <Loader2 className="h-3 w-3 animate-spin text-[#39FF14]" />}
+
+      {results.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto border border-[#39FF14]/20 bg-[#0a0a0a]">
+          {results.map((result) => (
+            <button
+              key={result.place_id}
+              type="button"
+              className="flex w-full items-start gap-2 border-b border-[#39FF14]/5 px-3 py-2 text-left last:border-0 hover:bg-[#39FF14]/10"
+              onClick={() => {
+                const latitude = Number(result.lat);
+                const longitude = Number(result.lon);
+                setQuery(result.display_name.split(',')[0]);
+                setResults([]);
+                window.dispatchEvent(new CustomEvent('flyToLocation', { detail: { longitude, latitude, height: 50000 } }));
+              }}
+            >
+              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-[#39FF14]" />
+              <div className="min-w-0">
+                <p className="truncate text-[10px] font-headline text-white">{result.display_name.split(',')[0]}</p>
+                <p className="truncate text-[9px] text-neutral-500">{result.display_name.split(',').slice(1, 2).join(',')}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function Weather() {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [busy, setBusy] = useState(false);
-  const fetchWeather = async () => {
-    const point = useEarthStore.getState().cursor ?? useEarthStore.getState().camera;
-    if (!point) return;
-    setBusy(true);
-    try { const data = await weatherService.getWeather(point.latitude, point.longitude); setWeather(data); if (!data.current) useEarthStore.getState().setMessage('Weather unavailable for this location.'); }
-    finally { setBusy(false); }
-  };
-  return <section className="panel"><h2>Weather</h2><p className="hint">Open-Meteo conditions at the last pointer location, or camera center. No radar overlay.</p>
-    <button className="control" disabled={busy} onClick={fetchWeather}>{busy ? 'Loading…' : 'Get conditions'}</button>
-    {weather?.current && <div className="mt-2 text-sm"><p>{weather.current.temp.toFixed(1)} °C · {weatherService.getWeatherInfo(weather.current.weather_code).description}</p><p>Wind {weather.current.wind_speed} km/h · Humidity {weather.current.humidity}%</p></div>}
-  </section>;
+function SideNavPanel() {
+  const { basemap, vision, dayNight, setPreferences } = useEarthStore();
+  const [activeSection, setActiveSection] = useState<'layers' | 'vision' | 'weather' | 'time'>('layers');
+
+  return (
+    <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-64 flex-col border-r border-[#39FF14]/10 bg-[#0a0a0a] shadow-[10px_0_30px_rgba(0,0,0,0.8)]">
+      <div className="border-b border-[#39FF14]/10 px-4 py-4">
+        <h2 className="text-sm font-bold tracking-wider text-white font-headline">MAP_LAYERS</h2>
+        <p className="text-[10px] font-headline tracking-tighter text-[#00E3FD] opacity-70">COORD_SYS: WGS84</p>
+      </div>
+
+      <div className="flex border-b border-[#39FF14]/10">
+        {(['layers', 'vision', 'weather', 'time'] as const).map((section) => (
+          <button
+            key={section}
+            type="button"
+            onClick={() => setActiveSection(section)}
+            className={cn(
+              'flex-1 py-2 text-[10px] font-headline uppercase tracking-wider transition-colors',
+              activeSection === section ? 'border-b-2 border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]' : 'text-neutral-500 hover:text-[#39FF14]/70'
+            )}
+          >
+            {section}
+          </button>
+        ))}
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="space-y-1 p-3">
+          {activeSection === 'layers' && (
+            <>
+              {IMAGERY_OPTIONS.map((layer) => (
+                <button
+                  key={layer.id}
+                  type="button"
+                  onClick={() => setPreferences({ basemap: layer.id })}
+                  className={cn(
+                    'flex w-full items-center gap-3 px-3 py-3 transition-all',
+                    basemap === layer.id ? 'border-l-2 border-[#39FF14] bg-[#262626] text-[#39FF14]' : 'text-neutral-400 hover:bg-[#262626]/50 hover:text-[#39FF14]/70'
+                  )}
+                >
+                  <layer.icon className="h-4 w-4" />
+                  <span className="text-[11px] font-headline font-medium uppercase tracking-widest">{layer.name}</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {activeSection === 'vision' && (
+            <>
+              {VISION_OPTIONS.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setPreferences({ vision: mode.id })}
+                  className={cn(
+                    'flex w-full items-center gap-3 px-3 py-3 transition-all',
+                    vision === mode.id ? 'border-l-2 border-[#39FF14] bg-[#262626] text-[#39FF14]' : 'text-neutral-400 hover:bg-[#262626]/50 hover:text-[#39FF14]/70'
+                  )}
+                >
+                  <mode.icon className="h-4 w-4" />
+                  <span className="text-[11px] font-headline font-medium uppercase tracking-widest">{mode.name}</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {activeSection === 'weather' && <WeatherSection />}
+          {activeSection === 'time' && <TimeSection />}
+        </div>
+      </ScrollArea>
+
+      <div className="mt-auto space-y-2 border-t border-[#39FF14]/10 px-3 py-3">
+        <button type="button" className="w-full bg-[#39FF14] py-2.5 text-xs font-headline font-bold text-black transition-all hover:bg-[#8eff71] active:scale-95">
+          INITIATE_SCAN
+        </button>
+        <div className="flex justify-between pt-2">
+          <div className="flex cursor-pointer flex-col items-center gap-1 opacity-50 transition-opacity hover:opacity-100">
+            <Terminal className="h-4 w-4 text-[#39FF14]" />
+            <span className="text-[8px] font-headline text-neutral-400">DIAGS</span>
+          </div>
+          <div className="flex cursor-pointer flex-col items-center gap-1 opacity-50 transition-opacity hover:opacity-100">
+            <Key className="h-4 w-4 text-[#39FF14]" />
+            <span className="text-[8px] font-headline text-neutral-400">DECRYPT</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 export default function EarthExplorer() {
-  const state = useEarthStore();
-  const [sidebar, setSidebar] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const importing = useRef(false);
-  const workers = useRef(new Set<Worker>());
-  useEffect(() => { const active = workers.current; return () => active.forEach(w => w.terminate()); }, []);
-  const totals = measure(!state.completed && state.cursor && state.points.length ? [...state.points, state.cursor] : state.points, state.tool === 'area');
-  const importGeo = async (file?: File) => {
-    if (!file || importing.current) return;
-    if (file.size > MAX_FILE_BYTES) { state.setMessage('GeoJSON must be 10 MB or smaller.'); return; }
-    if (state.imports.length >= 3) { state.setMessage('Remove a layer before importing another (three-layer limit).'); return; }
-    importing.current = true; setBusy(true);
-    let worker: Worker | undefined;
-    try {
-      const text = await file.text();
-      worker = new Worker(new URL('../lib/earth/geojson.worker.ts', import.meta.url)); workers.current.add(worker);
-      const data = await new Promise<FeatureCollection>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('Import took too long. Try a simpler file.')), 15000);
-        worker!.onmessage = event => { clearTimeout(timer); if (event.data.error) reject(new Error(event.data.error)); else resolve(event.data.data); };
-        worker!.onerror = () => { clearTimeout(timer); reject(new Error('Could not read GeoJSON.')); };
-        worker!.postMessage(text);
+  const [cursorCoords, setCursorCoords] = useState<Coordinates | null>(null);
+  const [cameraHeight, setCameraHeight] = useState(20000000);
+  const [fps, setFps] = useState(60);
+
+  useEffect(() => {
+    const handleCoords = (event: Event) => {
+      const coords = (event as CustomEvent<Coordinates>).detail;
+      setCursorCoords(coords);
+    };
+
+    const handleFps = (event: Event) => {
+      const value = Number((event as CustomEvent<number>).detail ?? 0);
+      if (Number.isFinite(value)) setFps(value);
+    };
+
+    const handleCameraHeight = (event: Event) => {
+      const value = Number((event as CustomEvent<number>).detail ?? 0);
+      if (Number.isFinite(value)) setCameraHeight(value);
+    };
+
+    window.addEventListener('globeCoordinates', handleCoords as EventListener);
+    window.addEventListener('globeFps', handleFps as EventListener);
+    window.addEventListener('globeCameraHeight', handleCameraHeight as EventListener);
+
+    return () => {
+      window.removeEventListener('globeCoordinates', handleCoords as EventListener);
+      window.removeEventListener('globeFps', handleFps as EventListener);
+      window.removeEventListener('globeCameraHeight', handleCameraHeight as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStreetView = (event: Event) => {
+      const { lat, lon } = (event as CustomEvent<{ lat: number; lon: number }>).detail;
+      toast.info('Opening Street View', {
+        description: `Location: ${lat.toFixed(4)}°, ${lon.toFixed(4)}° • Coverage varies by location.`,
+        duration: 5000,
       });
-      state.addImport({ id: crypto.randomUUID(), name: file.name, data, color: '#00e3fd', visible: true });
-    } catch (error) { state.setMessage(error instanceof Error ? error.message : 'Import failed.'); }
-    finally { if (worker) { worker.terminate(); workers.current.delete(worker); } importing.current = false; setBusy(false); }
-  };
-  const restore = async (file?: File) => {
-    if (!file) return;
-    try {
-      if (file.size > 2 * 1024 * 1024) throw new Error('Backup exceeds 2 MB.');
-      const incoming = readSaved(await file.text());
-      // Merge pins by ID; importing never silently deletes existing pins.
-      const pins = new Map(state.markers.map(m => [m.id, m])); incoming.markers.forEach(m => pins.set(m.id, m));
-      const merged = readSaved(JSON.stringify({ ...incoming, markers: [...pins.values()] }));
-      state.hydrate(merged);
-      if (merged.camera) window.dispatchEvent(new CustomEvent('flyToLocation', { detail: merged.camera }));
-      state.setMessage('Backup imported. Pins merged by ID; view preferences restored.');
-    } catch (error) { state.setMessage(error instanceof Error ? error.message : 'Invalid backup.'); }
-  };
-  const exportMeasurement = () => {
-    const coordinates = state.points.map(p => [p.longitude, p.latitude]);
-    download('measurement.geojson', { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { distanceMeters: totals.meters, areaSquareMeters: totals.squareMeters }, geometry: state.tool === 'area' ? { type: 'Polygon', coordinates: [[...coordinates, coordinates[0]]] } : { type: 'LineString', coordinates } }] });
-  };
-  return <main className="flex h-dvh flex-col overflow-hidden bg-[#080d0d] text-slate-100 dark">
-    <Persistence />
-    <header className="z-30 flex min-h-16 flex-wrap items-center justify-between gap-2 border-b border-green-400/20 bg-black/90 px-4 py-2">
-      <div className="flex items-center gap-3"><button className="control" aria-expanded={sidebar} aria-controls="tools-panel" onClick={() => setSidebar(!sidebar)}>Tools</button><h1 className="font-mono text-lg font-bold tracking-tight text-green-400">GEO_GLOBE</h1></div><Search />
-    </header>
-    <div className="relative flex min-h-0 flex-1">
-      {sidebar && <aside id="tools-panel" className="absolute inset-y-0 left-0 z-20 w-72 overflow-y-auto border-r border-green-400/20 bg-[#0a1010]/95 p-3 md:relative md:shrink-0">
-        <section className="panel"><h2>Basemap</h2>
-          <label className="hint" htmlFor="basemap">Map source</label><select id="basemap" className="field w-full" value={state.basemap} onChange={e => state.setPreferences({ basemap: e.target.value as typeof state.basemap })}>
-            <option value="osm">OpenStreetMap</option><option value="natural">Natural Earth · local</option>
-            <option value="positron" disabled={!process.env.NEXT_PUBLIC_CARTO_KEY}>CARTO Positron{!process.env.NEXT_PUBLIC_CARTO_KEY ? ' · key required' : ''}</option>
-            <option value="dark" disabled={!process.env.NEXT_PUBLIC_CARTO_KEY}>CARTO Dark{!process.env.NEXT_PUBLIC_CARTO_KEY ? ' · key required' : ''}</option>
-          </select><p className="hint">Natural Earth is a low-resolution local fallback. Provider attribution stays visible.</p>
-        </section>
-        <section className="panel"><h2>Display</h2><label className="hint" htmlFor="vision">Visual effect</label>
-          <select id="vision" className="field w-full" value={state.vision} onChange={e => state.setPreferences({ vision: e.target.value as typeof state.vision })}><option value="normal">Normal</option><option value="night-vision">Night vision</option><option value="thermal">False-color thermal</option><option value="wireframe">Edge outlines</option></select>
-          <p className="hint">Effects change appearance; they are not sensor data.</p>
-          <label className="flex gap-2 text-sm"><input type="checkbox" checked={state.dayNight} onChange={e => state.setPreferences({ dayNight: e.target.checked })} />Day/night lighting</label>
-          {state.dayNight && <div className="mt-2 flex gap-2"><button className="control" onClick={() => useEarthStore.setState({ playing: !state.playing })}>{state.playing ? 'Pause time' : 'Play time'}</button><select aria-label="Time speed" className="field" value={state.speed} onChange={e => useEarthStore.setState({ speed: Number(e.target.value) })}>{[1,60,600,3600].map(n => <option key={n} value={n}>{n}×</option>)}</select></div>}
-        </section>
-        <section className="panel"><h2>Measurements</h2><div className="flex flex-wrap gap-2"><button className="control" aria-pressed={state.tool === 'distance'} onClick={() => state.startTool('distance')}>Distance</button><button className="control" aria-pressed={state.tool === 'area'} onClick={() => state.startTool('area')}>Area</button></div>
-          <p className="hint">Click vertices on the globe. Enter or double-click completes; Esc cancels. Surface measurements exclude terrain height.</p>
-          {['distance','area'].includes(state.tool) && <><p className="my-2 text-sm" aria-live="polite">{state.completed ? 'Complete' : 'Drawing'} · {state.points.length} vertices<br />{state.tool === 'area' ? formatArea(totals.squareMeters) : formatDistance(totals.meters)}{state.tool === 'area' && <><br />Perimeter {formatDistance(totals.meters)}</>}</p><div className="flex flex-wrap gap-2"><button className="control" disabled={state.completed || state.points.length < (state.tool === 'area' ? 3 : 2)} onClick={state.complete}>Complete</button><button className="control" onClick={state.clearMeasurement}>{state.completed ? 'Clear' : 'Cancel'}</button>{state.completed && <button className="control" onClick={exportMeasurement}>Export GeoJSON</button>}</div></>}
-        </section>
-        <section className="panel"><h2>Saved pins</h2><button className="control" aria-pressed={state.tool === 'pin'} onClick={() => state.startTool(state.tool === 'pin' ? 'none' : 'pin')}>{state.tool === 'pin' ? 'Cancel pin placement' : 'Add pin on globe'}</button>
-          <ul className="mt-3 space-y-3">{state.markers.map(pin => <li key={pin.id} className="space-y-1"><input aria-label="Pin name" maxLength={160} className="field w-full" value={pin.name} onChange={e => useEarthStore.setState({ markers: state.markers.map(m => m.id === pin.id ? { ...m, name: e.target.value } : m) })} /><div className="flex gap-2"><button className="control" onClick={() => flyTo(pin.coordinates.longitude,pin.coordinates.latitude)}>Go to pin</button><button className="control" onClick={() => state.removeMarker(pin.id)}>Remove</button></div></li>)}</ul>
-        </section>
-        <section className="panel"><h2>GeoJSON layers</h2><p className="hint">Drop a file on the globe or upload. Up to 10 MB, 2,000 features and 50,000 vertices per file; three layers. Imports last until reload.</p>
-          <label className="block text-sm">Upload GeoJSON<input className="mt-2 block w-full text-xs" type="file" accept=".geojson,.json,application/geo+json" disabled={busy} onChange={e => { void importGeo(e.target.files?.[0]); e.target.value = ''; }} /></label>{busy && <p role="status">Validating file…</p>}
-          {state.imports.map(layer => <div key={layer.id} className="mt-3 space-y-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={layer.visible} onChange={e => state.updateImport(layer.id,{ visible: e.target.checked })} /><span className="break-all">{layer.name}</span></label><div className="flex items-center gap-2"><input aria-label={`Color for ${layer.name}`} type="color" value={layer.color} onChange={e => state.updateImport(layer.id,{ color: e.target.value })} /><button className="control" onClick={() => state.removeImport(layer.id)}>Remove layer</button></div></div>)}
-        </section>
-        <Weather />
-        <section className="panel"><h2>Browser backup</h2><p className="hint">Pins and view settings save on this browser. Import merges pins by ID and replaces view settings. No account or cloud sync.</p><button className="control" onClick={() => download('geo-globe-backup.json', savedState(state))}>Export backup</button><label className="mt-3 block text-sm">Import backup<input className="mt-2 block w-full text-xs" type="file" accept=".json" onChange={e => { void restore(e.target.files?.[0]); e.target.value = ''; }} /></label></section>
-      </aside>}
-      <section aria-label="Globe viewer" className="relative min-w-0 flex-1" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length > 1) state.setMessage('Drop one GeoJSON file at a time.'); else void importGeo(e.dataTransfer.files[0]); }}>
-        <Globe />
-        <div className="absolute right-3 top-3 flex gap-2"><button className="control" onClick={() => flyTo(0,20,20000000)}>Home</button><button className="control" onClick={() => window.dispatchEvent(new Event('captureGlobe'))}>Screenshot</button><button className="control hidden sm:block" onClick={() => { const promise = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); void promise.catch(() => state.setMessage('Fullscreen is unavailable in this browser.')); }}>Fullscreen</button></div>
-        <div className="pointer-events-none absolute bottom-12 left-3 max-w-[90%] bg-black/75 p-3 font-mono text-xs"><p>WGS84 {state.cursor ? `${state.cursor.latitude.toFixed(5)}°, ${state.cursor.longitude.toFixed(5)}°` : 'Move pointer over globe'}</p><p>Camera altitude {formatDistance(state.camera?.height ?? 20000000)}</p><p className="mt-1 text-slate-400">Drag: pan · Right drag: tilt · Scroll: zoom</p><p className="text-slate-400">Focus globe: WASD / QE / +−</p></div>
-      </section>
-    </div>
-    {state.message && <div role="alert" className="fixed bottom-5 left-1/2 z-50 flex w-[min(90vw,620px)] -translate-x-1/2 items-center gap-4 border border-amber-400/50 bg-slate-950 p-4 text-sm shadow-xl"><p className="flex-1 break-words">{state.message}</p><button className="control" onClick={() => state.setMessage(null)}>Dismiss</button></div>}
-  </main>;
+    };
+
+    window.addEventListener('openStreetView', handleStreetView as EventListener);
+    return () => window.removeEventListener('openStreetView', handleStreetView as EventListener);
+  }, []);
+
+  return (
+    <main className="relative h-screen w-screen overflow-hidden bg-[#0e0e0e] text-white dark">
+      <Persistence />
+
+      <div className="crt-overlay" />
+
+      <header className="fixed top-0 z-50 flex w-full items-center justify-between border-b border-[#39FF14]/20 bg-[#0a0a0a]/90 px-4 py-2 shadow-[0_4px_20px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+        <div className="flex items-center gap-4">
+          <span className="text-lg font-bold tracking-tighter text-[#39FF14] font-headline glow-green">TERRA_COMMAND_v1.0</span>
+          <div className="ml-1 h-5 w-[1px] bg-[#484848]/30" />
+          <div className="hidden gap-4 md:flex">
+            <span className="border-b border-[#39FF14] pb-0.5 text-[10px] font-headline uppercase tracking-widest text-[#39FF14]">MAP_VIEW</span>
+            <span className="text-[10px] font-headline uppercase tracking-widest text-neutral-500 hover:text-[#39FF14]/70">DATA_FEED</span>
+            <span className="text-[10px] font-headline uppercase tracking-widest text-neutral-500 hover:text-[#39FF14]/70">SYSTEM_LOG</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <SearchBar />
+          <div className="flex gap-2">
+            <button type="button" className="text-[#39FF14]/80 transition-all hover:text-[#39FF14]">
+              <Bell className="h-5 w-5" />
+            </button>
+            <button type="button" className="text-[#39FF14]/80 transition-all hover:text-[#39FF14]">
+              <Settings2 className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center border border-[#39FF14]/40 bg-[#262626] text-[#39FF14]">A</div>
+        </div>
+      </header>
+
+      <SideNavPanel />
+
+      <div className="ml-64 h-screen w-[calc(100vw-16rem)] overflow-hidden pt-14">
+        <div className="relative h-full w-full">
+          <Globe />
+          <div className="pointer-events-none absolute inset-0 opacity-5 grid-overlay" />
+          <NavButtons />
+          <TelemetryPanel coordinates={cursorCoords} altitude={cameraHeight} />
+          <div className="absolute left-2 top-2 z-10 bg-black/50 px-2 py-1 font-mono text-[10px] text-[#39FF14]">{fps} FPS</div>
+        </div>
+      </div>
+
+      <footer className="fixed bottom-0 z-50 flex h-12 w-full items-center justify-around border-t-2 border-[#39FF14]/30 bg-black/90 px-4 shadow-[0_-10px_40px_rgba(57,255,20,0.1)]">
+        <div className="flex h-full cursor-pointer flex-col items-center justify-center bg-[#39FF14] px-6 text-black transition-all active:scale-90">
+          <Crosshair className="h-4 w-4" />
+          <span className="text-[8px] font-headline font-bold tracking-widest">POSITION</span>
+        </div>
+        <div className="flex h-full cursor-pointer flex-col items-center justify-center px-6 text-[#39FF14]/50 transition-all hover:bg-[#39FF14]/5 active:scale-90">
+          <Activity className="h-4 w-4" />
+          <span className="text-[8px] font-headline font-bold tracking-widest">TELEMETRY</span>
+        </div>
+        <div className="flex h-full cursor-pointer flex-col items-center justify-center px-6 text-[#39FF14]/50 transition-all hover:bg-[#39FF14]/5 active:scale-90">
+          <Signal className="h-4 w-4" />
+          <span className="text-[8px] font-headline font-bold tracking-widest">SIGNAL</span>
+        </div>
+        <div className="flex h-full cursor-pointer flex-col items-center justify-center px-6 text-[#39FF14]/50 transition-all hover:bg-[#39FF14]/5 active:scale-90">
+          <Radio className="h-4 w-4" />
+          <span className="text-[8px] font-headline font-bold tracking-widest">UPLINK</span>
+        </div>
+      </footer>
+
+      <Toaster position="top-center" richColors />
+    </main>
+  );
 }
