@@ -1,575 +1,180 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Toaster } from '@/components/ui/sonner';
-import { toast } from 'sonner';
-import { useEarthStore } from '@/store/earth';
+import { useEarthStore, savedState } from '@/store/earth';
+import { defaults, readSaved, STORAGE_KEY } from '@/lib/earth/persistence';
+import { formatArea, formatDistance, measure } from '@/lib/earth/measurements';
+import { MAX_FILE_BYTES } from '@/lib/earth/geojson';
 import { weatherService, type WeatherData } from '@/lib/earth/weather-service';
-import { cn } from '@/lib/utils';
-import {
-  Layers,
-  Eye,
-  Cloud,
-  Search,
-  MapPin,
-  Home,
-  RefreshCw,
-  Download,
-  Maximize2,
-  Play,
-  Pause,
-  FastForward,
-  Rewind,
-  Loader2,
-  Wind,
-  Droplets,
-  Thermometer,
-  Satellite,
-  Mountain,
-  Activity,
-  Terminal,
-  Key,
-  Bell,
-  Settings2,
-  Signal,
-  Radio,
-  Crosshair,
-} from 'lucide-react';
-import type { Coordinates } from '@/types/earth';
+import type { FeatureCollection } from 'geojson';
 
-// Imagery layer options
-const IMAGERY_OPTIONS = [
-  { id: 'osm', name: 'VECTOR', icon: Layers },
-  { id: 'bing-aerial', name: 'SATELLITE', icon: Satellite },
-  { id: 'hybrid', name: 'STANDARD SAT', icon: MapPin },
-  { id: 'terrain', name: 'TERRAIN', icon: Mountain },
-  { id: 'dark', name: 'DARK', icon: Eye },
-  { id: 'esri-imagery', name: 'SAT HD', icon: Satellite },
-] as const;
-
-// Vision mode options
-const VISION_OPTIONS = [
-  { id: 'normal', name: 'Normal', icon: Eye },
-  { id: 'night-vision', name: 'Night Vision', icon: Eye },
-  { id: 'thermal', name: 'Thermal', icon: Activity },
-  { id: 'wireframe', name: 'Wireframe', icon: Layers },
-] as const;
-
-// Dynamic import for Cesium Globe (no SSR)
-const CesiumGlobeComponent = dynamic(
-  () => import('@/components/earth/core/CesiumGlobeComponent'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center bg-black">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="h-16 w-16 border-2 border-[#39FF14] animate-spin" style={{ borderTopColor: 'transparent' }} />
-          </div>
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-[#39FF14] font-headline">INITIALIZING SYSTEM</h2>
-            <p className="text-sm text-[#39FF14]/50 mt-1">Loading CesiumJS...</p>
-          </div>
-        </div>
-      </div>
-    ),
-  }
-);
-
-// Side Navigation Panel
-function SideNavPanel() {
-  const { imageryLayer, setImageryLayer, visionMode, setVisionMode, ui, setActivePanel, toggleSidebar } = useEarthStore();
-  const [activeSection, setActiveSection] = useState<'layers' | 'vision' | 'weather' | 'time'>('layers');
-  
-  return (
-    <aside className="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 z-40 bg-[#0a0a0a] border-r border-[#39FF14]/10 flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.8)]">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-[#39FF14]/10">
-        <h2 className="text-white text-sm font-bold font-headline tracking-wider">MAP_LAYERS</h2>
-        <p className="text-[10px] font-headline text-[#00E3FD] opacity-70 tracking-tighter">COORD_SYS: WGS84</p>
-      </div>
-      
-      {/* Section Tabs */}
-      <div className="flex border-b border-[#39FF14]/10">
-        {(['layers', 'vision', 'weather', 'time'] as const).map((section) => (
-          <button
-            key={section}
-            onClick={() => setActiveSection(section)}
-            className={cn(
-              'flex-1 py-2 text-[10px] font-headline uppercase tracking-wider transition-colors',
-              activeSection === section
-                ? 'bg-[#39FF14]/10 text-[#39FF14] border-b-2 border-[#39FF14]'
-                : 'text-neutral-500 hover:text-[#39FF14]/70'
-            )}
-          >
-            {section}
-          </button>
-        ))}
-      </div>
-      
-      {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-3 space-y-1">
-          {activeSection === 'layers' && (
-            <>
-              {IMAGERY_OPTIONS.map((layer) => (
-                <button
-                  key={layer.id}
-                  onClick={() => setImageryLayer(layer.id)}
-                  className={cn(
-                    'w-full px-3 py-3 flex items-center gap-3 transition-all',
-                    imageryLayer === layer.id
-                      ? 'bg-[#262626] text-[#39FF14] border-l-2 border-[#39FF14]'
-                      : 'text-neutral-400 hover:bg-[#262626]/50 hover:text-[#39FF14]/70'
-                  )}
-                >
-                  <layer.icon className="h-4 w-4" />
-                  <span className="font-headline font-medium uppercase text-[11px] tracking-widest">{layer.name}</span>
-                </button>
-              ))}
-            </>
-          )}
-          
-          {activeSection === 'vision' && (
-            <>
-              {VISION_OPTIONS.map((mode) => (
-                <button
-                  key={mode.id}
-                  onClick={() => setVisionMode(mode.id)}
-                  className={cn(
-                    'w-full px-3 py-3 flex items-center gap-3 transition-all',
-                    visionMode === mode.id
-                      ? 'bg-[#262626] text-[#39FF14] border-l-2 border-[#39FF14]'
-                      : 'text-neutral-400 hover:bg-[#262626]/50 hover:text-[#39FF14]/70'
-                  )}
-                >
-                  <mode.icon className="h-4 w-4" />
-                  <span className="font-headline font-medium uppercase text-[11px] tracking-widest">{mode.name}</span>
-                </button>
-              ))}
-            </>
-          )}
-          
-          {activeSection === 'weather' && <WeatherSection />}
-          {activeSection === 'time' && <TimeSection />}
-        </div>
-      </ScrollArea>
-      
-      {/* Footer */}
-      <div className="mt-auto px-3 py-3 border-t border-[#39FF14]/10 space-y-2">
-        <button className="w-full bg-[#39FF14] text-black font-headline font-bold text-xs py-2.5 hover:bg-[#8eff71] transition-all active:scale-95">
-          INITIATE_SCAN
-        </button>
-        <div className="flex justify-between pt-2">
-          <div className="flex flex-col items-center gap-1 opacity-50 hover:opacity-100 cursor-pointer transition-opacity">
-            <Terminal className="h-4 w-4 text-[#39FF14]" />
-            <span className="text-[8px] font-headline text-neutral-400">DIAGS</span>
-          </div>
-          <div className="flex flex-col items-center gap-1 opacity-50 hover:opacity-100 cursor-pointer transition-opacity">
-            <Key className="h-4 w-4 text-[#39FF14]" />
-            <span className="text-[8px] font-headline text-neutral-400">DECRYPT</span>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
+const Globe = dynamic(() => import('@/components/earth/core/CesiumGlobeComponent'), { ssr: false, loading: () => <div role="status" className="p-8">Loading viewer…</div> });
+const flyTo = (longitude: number, latitude: number, height = 50000) => window.dispatchEvent(new CustomEvent('flyToLocation', { detail: { longitude, latitude, height } }));
+function download(name: string, data: unknown) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// Weather Section Component
-function WeatherSection() {
-  const { clouds, setCloudVisible, setCloudOpacity } = useEarthStore();
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
-  
+function Persistence() {
   useEffect(() => {
-    const handleCoords = (coords: Coordinates) => setCoordinates(coords);
-    // Listen for coordinate updates from globe
-    window.addEventListener('globeCoordinates', ((e: CustomEvent) => handleCoords(e.detail)) as EventListener);
-    return () => window.removeEventListener('globeCoordinates', ((e: CustomEvent) => handleCoords(e.detail)) as EventListener);
-  }, []);
-  
-  useEffect(() => {
-    if (!coordinates) return;
-    const fetchWeather = async () => {
-      setLoading(true);
-      const data = await weatherService.getWeather(coordinates.latitude, coordinates.longitude);
-      setWeatherData(data);
-      setLoading(false);
+    const store = useEarthStore;
+    try { const data = localStorage.getItem(STORAGE_KEY); store.getState().hydrate(data ? readSaved(data) : defaults); }
+    catch { store.getState().hydrate(defaults); store.getState().setMessage('Saved browser data could not be loaded. Defaults are active; export a backup before closing.'); }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let dirty = false;
+    const flush = () => {
+      if (!dirty) return;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState(store.getState()))); dirty = false; }
+      catch { store.getState().setMessage('Browser storage is unavailable or full. Export your pins and settings to keep a backup.'); }
     };
-    fetchWeather();
-  }, [coordinates]);
-  
-  const current = weatherData?.current;
-  
-  return (
-    <div className="space-y-3">
-      {/* Cloud Toggle */}
-      <div className="flex items-center justify-between py-2">
-        <span className="text-[10px] font-headline text-neutral-400 uppercase">Cloud Layer</span>
-        <Switch checked={clouds.visible} onCheckedChange={setCloudVisible} />
-      </div>
-      
-      {loading ? (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-[#39FF14]" />
-        </div>
-      ) : current ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 p-2 bg-[#262626] border border-[#39FF14]/10">
-            <img 
-              src={weatherService.getWeatherIconUrl(current.weather_code, current.is_day)}
-              alt="Weather"
-              width={32}
-              height={32}
-            />
-            <div>
-              <div className="text-lg font-bold text-white">{Math.round(current.temp)}°C</div>
-              <div className="text-[9px] text-neutral-400 uppercase">
-                {weatherService.getWeatherInfo(current.weather_code).description}
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-1 text-[9px]">
-            <div className="flex items-center gap-1 p-1.5 bg-[#262626] border border-[#39FF14]/5">
-              <Thermometer className="h-3 w-3 text-[#ff9f4a]" />
-              <span className="text-neutral-400">Feels:</span>
-              <span className="text-white">{Math.round(current.feels_like)}°</span>
-            </div>
-            <div className="flex items-center gap-1 p-1.5 bg-[#262626] border border-[#39FF14]/5">
-              <Droplets className="h-3 w-3 text-[#00E3FD]" />
-              <span className="text-neutral-400">Hum:</span>
-              <span className="text-white">{current.humidity}%</span>
-            </div>
-            <div className="flex items-center gap-1 p-1.5 bg-[#262626] border border-[#39FF14]/5">
-              <Wind className="h-3 w-3 text-[#00E3FD]" />
-              <span className="text-neutral-400">Wind:</span>
-              <span className="text-white">{Math.round(current.wind_speed)}km/h</span>
-            </div>
-            <div className="flex items-center gap-1 p-1.5 bg-[#262626] border border-[#39FF14]/5">
-              <Cloud className="h-3 w-3 text-neutral-400" />
-              <span className="text-neutral-400">Cloud:</span>
-              <span className="text-white">{current.clouds}%</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="text-center py-4 text-[10px] text-neutral-500">
-          Hover over globe for weather data
-        </div>
-      )}
-    </div>
-  );
+    const unsubscribe = store.subscribe((s, p) => {
+      if (s.markers === p.markers && s.camera === p.camera && s.basemap === p.basemap && s.vision === p.vision && s.dayNight === p.dayNight) return;
+      dirty = true; clearTimeout(timer); timer = setTimeout(flush, 400);
+    });
+    window.addEventListener('pagehide', flush);
+    return () => { clearTimeout(timer); unsubscribe(); window.removeEventListener('pagehide', flush); flush(); };
+  }, []);
+  return null;
 }
 
-// Time Section Component
-function TimeSection() {
-  const { time, setTimeSpeed, toggleTimePlay, setShowDayNight } = useEarthStore();
-  
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between py-2">
-        <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
-        <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
-      </div>
-      
-      {time.showDayNight && (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(Math.max(1, time.speed / 10))}>
-            <Rewind className="h-3 w-3 text-[#39FF14]" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={toggleTimePlay}>
-            {time.playing ? <Pause className="h-3 w-3 text-[#39FF14]" /> : <Play className="h-3 w-3 text-[#39FF14]" />}
-          </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(time.speed * 10)}>
-            <FastForward className="h-3 w-3 text-[#39FF14]" />
-          </Button>
-          <span className="text-[10px] font-headline text-[#39FF14] ml-1">{time.speed}x</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Telemetry Panel
-function TelemetryPanel({ coordinates, altitude }: { coordinates: Coordinates | null; altitude: number }) {
-  const formatAlt = (m: number) => {
-    if (m > 1000000) return `${(m / 1000000).toFixed(0)}M m`;
-    if (m > 1000) return `${(m / 1000).toFixed(1)} km`;
-    return `${m.toFixed(0)} m`;
-  };
-  
-  return (
-    <div className="absolute bottom-20 left-6 z-10 w-72 bg-black/40 backdrop-blur-lg border border-[#39FF14]/10 p-4 font-headline shadow-2xl">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex flex-col">
-          <span className="text-[10px] text-[#39FF14] tracking-widest uppercase">LAT_LON_FEED</span>
-          <span className="text-base font-bold text-white tracking-tighter">
-            {coordinates ? `${coordinates.latitude.toFixed(4)}°, ${coordinates.longitude.toFixed(4)}°` : '---°, ---°'}
-          </span>
-        </div>
-        <div className="px-2 py-1 bg-[#2be800] text-black text-[9px] font-black">LIVE</div>
-      </div>
-      <div className="grid grid-cols-2 gap-4 text-[10px] text-neutral-400">
-        <div className="flex flex-col border-l border-[#39FF14]/30 pl-2">
-          <span className="uppercase">Altitude</span>
-          <span className="text-white font-mono">{formatAlt(altitude)}</span>
-        </div>
-        <div className="flex flex-col border-l border-[#39FF14]/30 pl-2">
-          <span className="uppercase">Vision</span>
-          <span className="text-[#39FF14] font-mono uppercase">{useEarthStore.getState().visionMode}</span>
-        </div>
-        <div className="flex flex-col border-l border-[#39FF14]/30 pl-2">
-          <span className="uppercase">Layer</span>
-          <span className="text-[#00E3FD] font-mono uppercase">{useEarthStore.getState().imageryLayer}</span>
-        </div>
-        <div className="flex flex-col border-l border-[#39FF14]/30 pl-2">
-          <span className="uppercase">Status</span>
-          <span className="text-[#39FF14] font-mono">ONLINE</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Controls Panel
-function ControlsPanel() {
-  return (
-    <div className="absolute bottom-20 right-6 z-10">
-      <div className="bg-[#131313] border-2 border-[#39FF14]/40 p-4 shadow-[0_0_30px_rgba(57,255,20,0.15)]">
-        <h3 className="font-headline font-black text-xs text-[#39FF14] mb-3 tracking-[0.2em] border-b border-[#39FF14]/20 pb-2">INPUT_TERMINAL</h3>
-        <div className="flex flex-col items-center gap-1 font-mono text-xs">
-          <div className="flex gap-1">
-            <div className="w-7 h-7 flex items-center justify-center border border-white/20 text-white/40 text-[10px]">Q</div>
-            <div className="w-7 h-7 flex items-center justify-center border-2 border-[#39FF14] text-[#39FF14] text-[10px] glow-green">W</div>
-            <div className="w-7 h-7 flex items-center justify-center border border-white/20 text-white/40 text-[10px]">E</div>
-          </div>
-          <div className="flex gap-1">
-            <div className="w-7 h-7 flex items-center justify-center border-2 border-[#39FF14] text-[#39FF14] text-[10px] glow-green">A</div>
-            <div className="w-7 h-7 flex items-center justify-center border-2 border-[#39FF14] text-[#39FF14] text-[10px] glow-green">S</div>
-            <div className="w-7 h-7 flex items-center justify-center border-2 border-[#39FF14] text-[#39FF14] text-[10px] glow-green">D</div>
-          </div>
-        </div>
-        <div className="mt-3 pt-3 border-t border-[#484848]/20 flex flex-col gap-1 text-[9px] uppercase font-headline text-neutral-500">
-          <div className="flex justify-between"><span>NAV:</span> <span className="text-white">WASD</span></div>
-          <div className="flex justify-between"><span>TILT:</span> <span className="text-white">QE</span></div>
-          <div className="flex justify-between"><span>ZOOM:</span> <span className="text-white">+/-</span></div>
-          <div className="flex justify-between"><span>STREET:</span> <span className="text-white">R_CLICK</span></div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Navigation Buttons
-function NavButtons() {
-  return (
-    <div className="absolute top-20 right-6 z-10 flex flex-col gap-1">
-      <div className="bg-black/60 backdrop-blur-md border border-[#00E3FD]/20 p-1.5 flex flex-col gap-1">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-9 w-9 bg-[#1f2020] text-[#00E3FD] hover:bg-[#00E3FD] hover:text-black transition-all border-0"
-          onClick={() => window.dispatchEvent(new CustomEvent('flyToLocation', { detail: { longitude: 0, latitude: 20, height: 20000000 } }))}
-        >
-          <Home className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 bg-[#1f2020] text-[#00E3FD] hover:bg-[#00E3FD] hover:text-black transition-all border-0">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 bg-[#1f2020] text-[#00E3FD] hover:bg-[#00E3FD] hover:text-black transition-all border-0">
-          <Download className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 bg-[#1f2020] text-[#00E3FD] hover:bg-[#00E3FD] hover:text-black transition-all border-0">
-          <Maximize2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Search Bar
-function SearchBar() {
+function Search() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  
-  const searchLocation = async (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
-    setLoading(true);
+  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<{ place_id: number; display_name: string; lat: string; lon: string }[]>([]);
+  const last = useRef(0);
+  const cache = useRef(new Map<string, typeof results>());
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => abort.current?.abort(), []);
+  const search = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = query.trim(); if (!text || busy || Date.now() - last.current < 1100) return;
+    if (cache.current.has(text)) { setResults(cache.current.get(text)!); return; }
+    last.current = Date.now(); setBusy(true); abort.current?.abort(); abort.current = new AbortController();
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&accept-language=en`
-      );
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`, { signal: abort.current.signal });
+      if (!response.ok) throw new Error('Search is unavailable. Try again later.');
       const data = await response.json();
-      setResults(data);
-    } catch (err) {
-      console.error('Search failed:', err);
-    } finally {
-      setLoading(false);
-    }
+      if (!Array.isArray(data)) throw new Error('Unexpected search response.');
+      const valid = data.filter(r => Number.isFinite(Number(r.lat)) && Number.isFinite(Number(r.lon)) && typeof r.display_name === 'string');
+      if (cache.current.size >= 30) cache.current.clear();
+      cache.current.set(text, valid); setResults(valid);
+      if (!valid.length) useEarthStore.getState().setMessage('No locations found.');
+    } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) useEarthStore.getState().setMessage(error instanceof Error ? error.message : 'Search failed.'); }
+    finally { setBusy(false); }
   };
-  
-  const flyTo = (lon: number, lat: number, name: string) => {
-    setQuery(name);
-    setResults([]);
-    window.dispatchEvent(new CustomEvent('flyToLocation', { 
-      detail: { longitude: lon, latitude: lat, height: 50000 } 
-    }));
-  };
-  
-  return (
-    <div className="relative hidden md:flex items-center bg-[#000] px-3 py-1.5 border border-[#484848]/30 gap-2">
-      <Search className="h-3.5 w-3.5 text-[#39FF14]" />
-      <Input
-        type="text"
-        placeholder="COORD_SEARCH..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && searchLocation(query)}
-        className="bg-transparent border-none text-[10px] font-headline uppercase text-white placeholder:text-neutral-500 focus:ring-0 focus-visible:ring-0 w-40 h-5 p-0"
-      />
-      {loading && <Loader2 className="h-3 w-3 animate-spin text-[#39FF14]" />}
-      
-      {results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0a0a0a] border border-[#39FF14]/20 z-50 max-h-48 overflow-auto">
-          {results.map((result) => (
-            <button
-              key={result.place_id}
-              className="w-full px-3 py-2 text-left hover:bg-[#39FF14]/10 flex items-start gap-2 border-b border-[#39FF14]/5 last:border-0"
-              onClick={() => flyTo(parseFloat(result.lon), parseFloat(result.lat), result.display_name.split(',')[0])}
-            >
-              <MapPin className="h-3 w-3 mt-0.5 text-[#39FF14] shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-headline text-white truncate">{result.display_name.split(',')[0]}</p>
-                <p className="text-[9px] text-neutral-500 truncate">{result.display_name.split(',').slice(1, 2).join(',')}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <form onSubmit={search} className="relative flex gap-2">
+    <input aria-label="Search places" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search places…" className="field min-w-0 w-36 sm:w-56" />
+    <button className="control" disabled={busy}>{busy ? 'Searching…' : 'Search'}</button>
+    {!!results.length && <div className="absolute top-full right-0 z-50 mt-2 w-80 max-w-[90vw] border border-green-500/30 bg-slate-950 p-2 shadow-xl">
+      <button type="button" className="control mb-2" onClick={() => setResults([])}>Close results</button>
+      {results.map(r => <button type="button" className="block w-full border-t border-white/10 p-3 text-left text-sm hover:bg-green-500/10" key={r.place_id} onClick={() => { flyTo(Number(r.lon), Number(r.lat)); setResults([]); }}>{r.display_name}</button>)}
+      <p className="p-2 text-xs text-slate-400">Search © OpenStreetMap contributors</p>
+    </div>}
+  </form>;
 }
 
-// Main Page Component
-export default function EarthExplorer() {
-  const [cursorCoords, setCursorCoords] = useState<Coordinates | null>(null);
-  const [fps, setFps] = useState(60);
-  const [cameraHeight, setCameraHeight] = useState(20000000);
-  
-  // Handle Street View toast notification
-  useEffect(() => {
-    const handleStreetView = (e: CustomEvent) => {
-      const { lat, lon } = e.detail;
-      toast.info('Opening Street View', {
-        description: `Location: ${lat.toFixed(4)}°, ${lon.toFixed(4)}° • Coverage varies by location.`,
-        duration: 5000,
-      });
-    };
-    
-    window.addEventListener('openStreetView', handleStreetView as EventListener);
-    return () => window.removeEventListener('openStreetView', handleStreetView as EventListener);
-  }, []);
+function Weather() {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fetchWeather = async () => {
+    const point = useEarthStore.getState().cursor ?? useEarthStore.getState().camera;
+    if (!point) return;
+    setBusy(true);
+    try { const data = await weatherService.getWeather(point.latitude, point.longitude); setWeather(data); if (!data.current) useEarthStore.getState().setMessage('Weather unavailable for this location.'); }
+    finally { setBusy(false); }
+  };
+  return <section className="panel"><h2>Weather</h2><p className="hint">Open-Meteo conditions at the last pointer location, or camera center. No radar overlay.</p>
+    <button className="control" disabled={busy} onClick={fetchWeather}>{busy ? 'Loading…' : 'Get conditions'}</button>
+    {weather?.current && <div className="mt-2 text-sm"><p>{weather.current.temp.toFixed(1)} °C · {weatherService.getWeatherInfo(weather.current.weather_code).description}</p><p>Wind {weather.current.wind_speed} km/h · Humidity {weather.current.humidity}%</p></div>}
+  </section>;
+}
 
-  const handleGlobeReady = useCallback(() => {
-    console.log('Globe ready');
-  }, []);
-  
-  return (
-    <main className="relative w-screen h-screen overflow-hidden bg-[#0e0e0e] dark">
-      {/* CRT Overlay */}
-      <div className="crt-overlay" />
-      
-      {/* Top App Bar */}
-      <header className="fixed top-0 w-full z-50 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-[#39FF14]/20 flex justify-between items-center px-4 py-2 shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
-        <div className="flex items-center gap-4">
-          <span className="text-lg font-bold tracking-tighter text-[#39FF14] font-headline glow-green">TERRA_COMMAND_v1.0</span>
-          <div className="h-5 w-[1px] bg-[#484848]/30 ml-1" />
-          <div className="hidden md:flex gap-4">
-            <span className="font-headline uppercase tracking-widest text-[10px] text-[#39FF14] border-b border-[#39FF14] pb-0.5">MAP_VIEW</span>
-            <span className="font-headline uppercase tracking-widest text-[10px] text-neutral-500 hover:text-[#39FF14]/70 cursor-pointer transition-colors">DATA_FEED</span>
-            <span className="font-headline uppercase tracking-widest text-[10px] text-neutral-500 hover:text-[#39FF14]/70 cursor-pointer transition-colors">SYSTEM_LOG</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <SearchBar />
-          <div className="flex gap-2">
-            <button className="text-[#39FF14]/80 hover:text-[#39FF14] transition-all">
-              <Bell className="h-5 w-5" />
-            </button>
-            <button className="text-[#39FF14]/80 hover:text-[#39FF14] transition-all">
-              <Settings2 className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="w-8 h-8 bg-[#262626] border border-[#39FF14]/40 flex items-center justify-center text-[#39FF14] text-xs font-bold">
-            OP
-          </div>
-        </div>
-      </header>
-      
-      {/* Side Navigation Panel */}
-      <SideNavPanel />
-      
-      {/* Main Canvas Area */}
-      <div className="ml-64 pt-14 h-screen w-[calc(100vw-16rem)] relative map-bg overflow-hidden">
-        {/* Cesium Globe */}
-        <CesiumGlobeComponent
-          onReady={handleGlobeReady}
-          onClick={(coords) => {
-            setCursorCoords(coords);
-            window.dispatchEvent(new CustomEvent('globeCoordinates', { detail: coords }));
-          }}
-          onCameraChange={(camera) => setCameraHeight(camera.height)}
-        />
-        
-        {/* Grid Overlay */}
-        <div className="absolute inset-0 opacity-5 grid-overlay pointer-events-none" />
-        
-        {/* Navigation Buttons */}
-        <NavButtons />
-        
-        {/* Telemetry Panel */}
-        <TelemetryPanel coordinates={cursorCoords} altitude={cameraHeight} />
-        
-        {/* Controls Panel */}
-        <ControlsPanel />
-        
-        {/* FPS Counter */}
-        <div className="absolute top-2 left-2 text-[10px] font-mono bg-black/50 text-[#39FF14] px-2 py-1 z-10">
-          {fps} FPS
-        </div>
-      </div>
-      
-      {/* Bottom Navigation Bar */}
-      <footer className="fixed bottom-0 w-full z-50 bg-black/90 border-t-2 border-[#39FF14]/30 flex justify-around items-center h-12 px-4 shadow-[0_-10px_40px_rgba(57,255,20,0.1)]">
-        <div className="flex flex-col items-center justify-center bg-[#39FF14] text-black px-6 h-full transition-all active:scale-90 cursor-pointer">
-          <Crosshair className="h-4 w-4" />
-          <span className="font-headline font-bold text-[8px] tracking-widest">POSITION</span>
-        </div>
-        <div className="flex flex-col items-center justify-center text-[#39FF14]/50 px-6 h-full hover:bg-[#39FF14]/5 transition-all active:scale-90 cursor-pointer">
-          <Activity className="h-4 w-4" />
-          <span className="font-headline font-bold text-[8px] tracking-widest">TELEMETRY</span>
-        </div>
-        <div className="flex flex-col items-center justify-center text-[#39FF14]/50 px-6 h-full hover:bg-[#39FF14]/5 transition-all active:scale-90 cursor-pointer">
-          <Signal className="h-4 w-4" />
-          <span className="font-headline font-bold text-[8px] tracking-widest">SIGNAL</span>
-        </div>
-        <div className="flex flex-col items-center justify-center text-[#39FF14]/50 px-6 h-full hover:bg-[#39FF14]/5 transition-all active:scale-90 cursor-pointer">
-          <Radio className="h-4 w-4" />
-          <span className="font-headline font-bold text-[8px] tracking-widest">UPLINK</span>
-        </div>
-      </footer>
-      
-      {/* Toast Notifications */}
-      <Toaster position="top-center" richColors />
-    </main>
-  );
+export default function EarthExplorer() {
+  const state = useEarthStore();
+  const [sidebar, setSidebar] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const importing = useRef(false);
+  const workers = useRef(new Set<Worker>());
+  useEffect(() => { const active = workers.current; return () => active.forEach(w => w.terminate()); }, []);
+  const totals = measure(!state.completed && state.cursor && state.points.length ? [...state.points, state.cursor] : state.points, state.tool === 'area');
+  const importGeo = async (file?: File) => {
+    if (!file || importing.current) return;
+    if (file.size > MAX_FILE_BYTES) { state.setMessage('GeoJSON must be 10 MB or smaller.'); return; }
+    if (state.imports.length >= 3) { state.setMessage('Remove a layer before importing another (three-layer limit).'); return; }
+    importing.current = true; setBusy(true);
+    let worker: Worker | undefined;
+    try {
+      const text = await file.text();
+      worker = new Worker(new URL('../lib/earth/geojson.worker.ts', import.meta.url)); workers.current.add(worker);
+      const data = await new Promise<FeatureCollection>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Import took too long. Try a simpler file.')), 15000);
+        worker!.onmessage = event => { clearTimeout(timer); if (event.data.error) reject(new Error(event.data.error)); else resolve(event.data.data); };
+        worker!.onerror = () => { clearTimeout(timer); reject(new Error('Could not read GeoJSON.')); };
+        worker!.postMessage(text);
+      });
+      state.addImport({ id: crypto.randomUUID(), name: file.name, data, color: '#00e3fd', visible: true });
+    } catch (error) { state.setMessage(error instanceof Error ? error.message : 'Import failed.'); }
+    finally { if (worker) { worker.terminate(); workers.current.delete(worker); } importing.current = false; setBusy(false); }
+  };
+  const restore = async (file?: File) => {
+    if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error('Backup exceeds 2 MB.');
+      const incoming = readSaved(await file.text());
+      // Merge pins by ID; importing never silently deletes existing pins.
+      const pins = new Map(state.markers.map(m => [m.id, m])); incoming.markers.forEach(m => pins.set(m.id, m));
+      const merged = readSaved(JSON.stringify({ ...incoming, markers: [...pins.values()] }));
+      state.hydrate(merged);
+      if (merged.camera) window.dispatchEvent(new CustomEvent('flyToLocation', { detail: merged.camera }));
+      state.setMessage('Backup imported. Pins merged by ID; view preferences restored.');
+    } catch (error) { state.setMessage(error instanceof Error ? error.message : 'Invalid backup.'); }
+  };
+  const exportMeasurement = () => {
+    const coordinates = state.points.map(p => [p.longitude, p.latitude]);
+    download('measurement.geojson', { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { distanceMeters: totals.meters, areaSquareMeters: totals.squareMeters }, geometry: state.tool === 'area' ? { type: 'Polygon', coordinates: [[...coordinates, coordinates[0]]] } : { type: 'LineString', coordinates } }] });
+  };
+  return <main className="flex h-dvh flex-col overflow-hidden bg-[#080d0d] text-slate-100 dark">
+    <Persistence />
+    <header className="z-30 flex min-h-16 flex-wrap items-center justify-between gap-2 border-b border-green-400/20 bg-black/90 px-4 py-2">
+      <div className="flex items-center gap-3"><button className="control" aria-expanded={sidebar} aria-controls="tools-panel" onClick={() => setSidebar(!sidebar)}>Tools</button><h1 className="font-mono text-lg font-bold tracking-tight text-green-400">GEO_GLOBE</h1></div><Search />
+    </header>
+    <div className="relative flex min-h-0 flex-1">
+      {sidebar && <aside id="tools-panel" className="absolute inset-y-0 left-0 z-20 w-72 overflow-y-auto border-r border-green-400/20 bg-[#0a1010]/95 p-3 md:relative md:shrink-0">
+        <section className="panel"><h2>Basemap</h2>
+          <label className="hint" htmlFor="basemap">Map source</label><select id="basemap" className="field w-full" value={state.basemap} onChange={e => state.setPreferences({ basemap: e.target.value as typeof state.basemap })}>
+            <option value="osm">OpenStreetMap</option><option value="natural">Natural Earth · local</option>
+            <option value="positron" disabled={!process.env.NEXT_PUBLIC_CARTO_KEY}>CARTO Positron{!process.env.NEXT_PUBLIC_CARTO_KEY ? ' · key required' : ''}</option>
+            <option value="dark" disabled={!process.env.NEXT_PUBLIC_CARTO_KEY}>CARTO Dark{!process.env.NEXT_PUBLIC_CARTO_KEY ? ' · key required' : ''}</option>
+          </select><p className="hint">Natural Earth is a low-resolution local fallback. Provider attribution stays visible.</p>
+        </section>
+        <section className="panel"><h2>Display</h2><label className="hint" htmlFor="vision">Visual effect</label>
+          <select id="vision" className="field w-full" value={state.vision} onChange={e => state.setPreferences({ vision: e.target.value as typeof state.vision })}><option value="normal">Normal</option><option value="night-vision">Night vision</option><option value="thermal">False-color thermal</option><option value="wireframe">Edge outlines</option></select>
+          <p className="hint">Effects change appearance; they are not sensor data.</p>
+          <label className="flex gap-2 text-sm"><input type="checkbox" checked={state.dayNight} onChange={e => state.setPreferences({ dayNight: e.target.checked })} />Day/night lighting</label>
+          {state.dayNight && <div className="mt-2 flex gap-2"><button className="control" onClick={() => useEarthStore.setState({ playing: !state.playing })}>{state.playing ? 'Pause time' : 'Play time'}</button><select aria-label="Time speed" className="field" value={state.speed} onChange={e => useEarthStore.setState({ speed: Number(e.target.value) })}>{[1,60,600,3600].map(n => <option key={n} value={n}>{n}×</option>)}</select></div>}
+        </section>
+        <section className="panel"><h2>Measurements</h2><div className="flex flex-wrap gap-2"><button className="control" aria-pressed={state.tool === 'distance'} onClick={() => state.startTool('distance')}>Distance</button><button className="control" aria-pressed={state.tool === 'area'} onClick={() => state.startTool('area')}>Area</button></div>
+          <p className="hint">Click vertices on the globe. Enter or double-click completes; Esc cancels. Surface measurements exclude terrain height.</p>
+          {['distance','area'].includes(state.tool) && <><p className="my-2 text-sm" aria-live="polite">{state.completed ? 'Complete' : 'Drawing'} · {state.points.length} vertices<br />{state.tool === 'area' ? formatArea(totals.squareMeters) : formatDistance(totals.meters)}{state.tool === 'area' && <><br />Perimeter {formatDistance(totals.meters)}</>}</p><div className="flex flex-wrap gap-2"><button className="control" disabled={state.completed || state.points.length < (state.tool === 'area' ? 3 : 2)} onClick={state.complete}>Complete</button><button className="control" onClick={state.clearMeasurement}>{state.completed ? 'Clear' : 'Cancel'}</button>{state.completed && <button className="control" onClick={exportMeasurement}>Export GeoJSON</button>}</div></>}
+        </section>
+        <section className="panel"><h2>Saved pins</h2><button className="control" aria-pressed={state.tool === 'pin'} onClick={() => state.startTool(state.tool === 'pin' ? 'none' : 'pin')}>{state.tool === 'pin' ? 'Cancel pin placement' : 'Add pin on globe'}</button>
+          <ul className="mt-3 space-y-3">{state.markers.map(pin => <li key={pin.id} className="space-y-1"><input aria-label="Pin name" maxLength={160} className="field w-full" value={pin.name} onChange={e => useEarthStore.setState({ markers: state.markers.map(m => m.id === pin.id ? { ...m, name: e.target.value } : m) })} /><div className="flex gap-2"><button className="control" onClick={() => flyTo(pin.coordinates.longitude,pin.coordinates.latitude)}>Go to pin</button><button className="control" onClick={() => state.removeMarker(pin.id)}>Remove</button></div></li>)}</ul>
+        </section>
+        <section className="panel"><h2>GeoJSON layers</h2><p className="hint">Drop a file on the globe or upload. Up to 10 MB, 2,000 features and 50,000 vertices per file; three layers. Imports last until reload.</p>
+          <label className="block text-sm">Upload GeoJSON<input className="mt-2 block w-full text-xs" type="file" accept=".geojson,.json,application/geo+json" disabled={busy} onChange={e => { void importGeo(e.target.files?.[0]); e.target.value = ''; }} /></label>{busy && <p role="status">Validating file…</p>}
+          {state.imports.map(layer => <div key={layer.id} className="mt-3 space-y-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={layer.visible} onChange={e => state.updateImport(layer.id,{ visible: e.target.checked })} /><span className="break-all">{layer.name}</span></label><div className="flex items-center gap-2"><input aria-label={`Color for ${layer.name}`} type="color" value={layer.color} onChange={e => state.updateImport(layer.id,{ color: e.target.value })} /><button className="control" onClick={() => state.removeImport(layer.id)}>Remove layer</button></div></div>)}
+        </section>
+        <Weather />
+        <section className="panel"><h2>Browser backup</h2><p className="hint">Pins and view settings save on this browser. Import merges pins by ID and replaces view settings. No account or cloud sync.</p><button className="control" onClick={() => download('geo-globe-backup.json', savedState(state))}>Export backup</button><label className="mt-3 block text-sm">Import backup<input className="mt-2 block w-full text-xs" type="file" accept=".json" onChange={e => { void restore(e.target.files?.[0]); e.target.value = ''; }} /></label></section>
+      </aside>}
+      <section aria-label="Globe viewer" className="relative min-w-0 flex-1" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length > 1) state.setMessage('Drop one GeoJSON file at a time.'); else void importGeo(e.dataTransfer.files[0]); }}>
+        <Globe />
+        <div className="absolute right-3 top-3 flex gap-2"><button className="control" onClick={() => flyTo(0,20,20000000)}>Home</button><button className="control" onClick={() => window.dispatchEvent(new Event('captureGlobe'))}>Screenshot</button><button className="control hidden sm:block" onClick={() => { const promise = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); void promise.catch(() => state.setMessage('Fullscreen is unavailable in this browser.')); }}>Fullscreen</button></div>
+        <div className="pointer-events-none absolute bottom-12 left-3 max-w-[90%] bg-black/75 p-3 font-mono text-xs"><p>WGS84 {state.cursor ? `${state.cursor.latitude.toFixed(5)}°, ${state.cursor.longitude.toFixed(5)}°` : 'Move pointer over globe'}</p><p>Camera altitude {formatDistance(state.camera?.height ?? 20000000)}</p><p className="mt-1 text-slate-400">Drag: pan · Right drag: tilt · Scroll: zoom</p><p className="text-slate-400">Focus globe: WASD / QE / +−</p></div>
+      </section>
+    </div>
+    {state.message && <div role="alert" className="fixed bottom-5 left-1/2 z-50 flex w-[min(90vw,620px)] -translate-x-1/2 items-center gap-4 border border-amber-400/50 bg-slate-950 p-4 text-sm shadow-xl"><p className="flex-1 break-words">{state.message}</p><button className="control" onClick={() => state.setMessage(null)}>Dismiss</button></div>}
+  </main>;
 }

@@ -234,3 +234,16 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #8eff71;
 }
+
+/* Shared controls retain the dark globe interface while exposing real actions. */
+:root { --font-geist-sans: Arial, Helvetica, sans-serif; --font-geist-mono: Consolas, monospace; }
+.control { border: 1px solid #3f7458; border-radius: 5px; padding: 6px 10px; background: #10241d; color: #d6ffe6; font-size: 12px; cursor: pointer; }
+.control:hover { background: #1b3b2d; }
+.control:disabled { opacity: .45; cursor: not-allowed; }
+.control[aria-pressed="true"] { border-color: #39ff14; background: #24452b; }
+.control:focus-visible, .field:focus-visible, input:focus-visible, .cesium-widget canvas:focus-visible { outline: 2px solid #00e3fd; outline-offset: 2px; }
+.field { border: 1px solid #355348; border-radius: 4px; padding: 6px 8px; background: #0a1512; color: #e4f8ec; font-size: 13px; }
+.panel { border-bottom: 1px solid #254334; padding: 12px 0; }
+.panel h2 { color: #82ef9a; font-size: 13px; font-weight: 700; margin-bottom: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.hint { color: #a2b4ac; font-size: 12px; line-height: 1.5; margin: 8px 0; }
+.cesium-viewer-bottom { max-width: 100%; }

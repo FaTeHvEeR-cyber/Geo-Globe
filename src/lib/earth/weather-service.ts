@@ -81,7 +81,7 @@ class WeatherService {
       // Open-Meteo API - free, no API key required
       const url = `${OPEN_METEO_URL}/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,wind_direction_10m,cloud_cover,weather_code,is_day&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&forecast_hours=24&timezone=auto`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
       
       if (!response.ok) {
         throw new Error('Weather API failed');
@@ -120,6 +120,7 @@ class WeatherService {
       weatherData.loading = false;
       weatherData.lastUpdated = new Date();
       
+      if (this.cache.size >= 50) this.cache.delete(this.cache.keys().next().value!);
       this.cache.set(cacheKey, { data: weatherData, timestamp: Date.now() });
       
     } catch (error) {
