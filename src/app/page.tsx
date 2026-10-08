@@ -269,34 +269,34 @@ function WeatherSection() {
   );
 }
 
-// Time Section Component
-function TimeSection() {
-  const { time, setTimeSpeed, toggleTimePlay, setShowDayNight } = useEarthStore();
+// // Time Section Component
+// function TimeSection() {
+//   const { time, setTimeSpeed, toggleTimePlay, setShowDayNight } = useEarthStore();
   
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between py-2">
-        <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
-        <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
-      </div>
+//   return (
+//     <div className="space-y-3">
+//       <div className="flex items-center justify-between py-2">
+//         <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
+//         <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
+//       </div>
       
-      {time.showDayNight && (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(Math.max(1, time.speed / 10))}>
-            <Rewind className="h-3 w-3 text-[#39FF14]" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={toggleTimePlay}>
-            {time.playing ? <Pause className="h-3 w-3 text-[#39FF14]" /> : <Play className="h-3 w-3 text-[#39FF14]" />}
-          </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(time.speed * 10)}>
-            <FastForward className="h-3 w-3 text-[#39FF14]" />
-          </Button>
-          <span className="text-[10px] font-headline text-[#39FF14] ml-1">{time.speed}x</span>
-        </div>
-      )}
-    </div>
-  );
-}
+//       {time.showDayNight && (
+//         <div className="flex items-center gap-2">
+//           <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(Math.max(1, time.speed / 10))}>
+//             <Rewind className="h-3 w-3 text-[#39FF14]" />
+//           </Button>
+//           <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={toggleTimePlay}>
+//             {time.playing ? <Pause className="h-3 w-3 text-[#39FF14]" /> : <Play className="h-3 w-3 text-[#39FF14]" />}
+//           </Button>
+//           <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(time.speed * 10)}>
+//             <FastForward className="h-3 w-3 text-[#39FF14]" />
+//           </Button>
+//           <span className="text-[10px] font-headline text-[#39FF14] ml-1">{time.speed}x</span>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 // Telemetry Panel
 function TelemetryPanel({ coordinates, altitude }: { coordinates: Coordinates | null; altitude: number }) {
