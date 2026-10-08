@@ -47,7 +47,7 @@ import type { Coordinates } from '@/types/earth';
 const IMAGERY_OPTIONS = [
   { id: 'osm', name: 'VECTOR', icon: Layers },
   { id: 'bing-aerial', name: 'SATELLITE', icon: Satellite },
-  { id: 'hybrid', name: 'STANDARD SAT', icon: MapPin },
+  // { id: 'hybrid', name: 'STANDARD SAT', icon: MapPin },
   { id: 'terrain', name: 'TERRAIN', icon: Mountain },
   { id: 'dark', name: 'DARK', icon: Eye },
   { id: 'esri-imagery', name: 'SAT HD', icon: Satellite },
@@ -56,9 +56,9 @@ const IMAGERY_OPTIONS = [
 // Vision mode options
 const VISION_OPTIONS = [
   { id: 'normal', name: 'Normal', icon: Eye },
-  { id: 'night-vision', name: 'Night Vision', icon: Eye },
+  // { id: 'night-vision', name: 'Night Vision', icon: Eye },
   { id: 'thermal', name: 'Thermal', icon: Activity },
-  { id: 'wireframe', name: 'Wireframe', icon: Layers },
+  // { id: 'wireframe', name: 'Wireframe', icon: Layers },
 ] as const;
 
 // Dynamic import for Cesium Globe (no SSR)
@@ -161,7 +161,7 @@ function SideNavPanel() {
         </div>
       </ScrollArea>
       
-      {/* Footer */}
+      /* {/* Footer */}
       <div className="mt-auto px-3 py-3 border-t border-[#39FF14]/10 space-y-2">
         <button className="w-full bg-[#39FF14] text-black font-headline font-bold text-xs py-2.5 hover:bg-[#8eff71] transition-all active:scale-95">
           INITIATE_SCAN
@@ -177,7 +177,7 @@ function SideNavPanel() {
           </div>
         </div>
       </div>
-    </aside>
+    </aside> */
   );
 }
 
@@ -210,11 +210,11 @@ function WeatherSection() {
   
   return (
     <div className="space-y-3">
-      {/* Cloud Toggle */}
+      /* {/* Cloud Toggle */}
       <div className="flex items-center justify-between py-2">
         <span className="text-[10px] font-headline text-neutral-400 uppercase">Cloud Layer</span>
         <Switch checked={clouds.visible} onCheckedChange={setCloudVisible} />
-      </div>
+      </div> */
       
       {loading ? (
         <div className="flex items-center justify-center py-4">
@@ -274,11 +274,11 @@ function TimeSection() {
   const { time, setTimeSpeed, toggleTimePlay, setShowDayNight } = useEarthStore();
   
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between py-2">
-        <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
-        <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
-      </div>
+    // <div className="space-y-3">
+    //   <div className="flex items-center justify-between py-2">
+    //     <span className="text-[10px] font-headline text-neutral-400 uppercase">Day/Night Cycle</span>
+    //     <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
+    //   </div>
       
       {time.showDayNight && (
         <div className="flex items-center gap-2">
@@ -339,7 +339,7 @@ function TelemetryPanel({ coordinates, altitude }: { coordinates: Coordinates | 
   );
 }
 
-// Controls Panel
+{/* // Controls Panel
 function ControlsPanel() {
   return (
     <div className="absolute bottom-20 right-6 z-10">
@@ -366,7 +366,7 @@ function ControlsPanel() {
       </div>
     </div>
   );
-}
+} */}
 
 // Navigation Buttons
 function NavButtons() {
@@ -548,7 +548,7 @@ export default function EarthExplorer() {
         </div>
       </div>
       
-      {/* Bottom Navigation Bar */}
+      /* {/* Bottom Navigation Bar */}
       <footer className="fixed bottom-0 w-full z-50 bg-black/90 border-t-2 border-[#39FF14]/30 flex justify-around items-center h-12 px-4 shadow-[0_-10px_40px_rgba(57,255,20,0.1)]">
         <div className="flex flex-col items-center justify-center bg-[#39FF14] text-black px-6 h-full transition-all active:scale-90 cursor-pointer">
           <Crosshair className="h-4 w-4" />
@@ -567,9 +567,9 @@ export default function EarthExplorer() {
           <span className="font-headline font-bold text-[8px] tracking-widest">UPLINK</span>
         </div>
       </footer>
-      
+      {/* 
       {/* Toast Notifications */}
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" richColors /> */} */
     </main>
   );
 }
