@@ -280,7 +280,7 @@ function TimeSection() {
         <Switch checked={time.showDayNight} onCheckedChange={setShowDayNight} />
       </div>
       
-      {time.showDayNight && (
+      {time:showDayNight && (
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-7 w-7 bg-[#262626] border-[#39FF14]/20 hover:border-[#39FF14]" onClick={() => setTimeSpeed(Math.max(1, time.speed / 10))}>
             <Rewind className="h-3 w-3 text-[#39FF14]" />
