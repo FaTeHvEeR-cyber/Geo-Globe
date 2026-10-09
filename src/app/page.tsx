@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -12,6 +12,7 @@ import { useEarthStore, savedState } from '@/store/earth';
 import { defaults, readSaved, STORAGE_KEY } from '@/lib/earth/persistence';
 import { weatherService, type WeatherData } from '@/lib/earth/weather-service';
 import { cn } from '@/lib/utils';
+import MeasurementsPanel from '@/components/earth/MeasurementsPanel';
 import {
   Activity,
   Bell,
@@ -81,7 +82,7 @@ function Persistence() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState(store.getState())));
         dirty = false;
       } catch {
-        store.getState().setMessage('Browser storage is unavailable or full. Export your pins and settings before closing.');
+        store.getState().setMessage('Browser storage is unavailable or full. Changes may not survive reload.');
       }
     };
 
@@ -107,7 +108,6 @@ function Persistence() {
 }
 
 function WeatherSection() {
-  const { dayNight, setPreferences } = useEarthStore();
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
@@ -129,13 +129,13 @@ function WeatherSection() {
     const fetchWeather = async () => {
       setLoading(true);
       const data = await weatherService.getWeather(coordinates.latitude, coordinates.longitude);
-      if (active) setWeatherData(data);
-      setLoading(false);
+      if (active) { setWeatherData(data); setLoading(false); }
     };
 
-    fetchWeather();
+    const timer = setTimeout(fetchWeather, 750);
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [coordinates]);
 
@@ -143,11 +143,6 @@ function WeatherSection() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between py-2">
-        <span className="text-[10px] font-headline text-neutral-400 uppercase">Cloud Layer</span>
-        <Switch checked={dayNight} onCheckedChange={(checked) => setPreferences({ dayNight: checked })} />
-      </div>
-
       {loading ? (
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-[#39FF14]" />
@@ -374,8 +369,8 @@ function SearchBar() {
 }
 
 function SideNavPanel() {
-  const { basemap, vision, dayNight, setPreferences } = useEarthStore();
-  const [activeSection, setActiveSection] = useState<'layers' | 'vision' | 'weather' | 'time'>('layers');
+  const { basemap, vision, setPreferences } = useEarthStore();
+  const [activeSection, setActiveSection] = useState<'layers' | 'vision' | 'weather' | 'time' | 'measurements'>('layers');
 
   return (
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-64 flex-col border-r border-[#39FF14]/10 bg-[#0a0a0a] shadow-[10px_0_30px_rgba(0,0,0,0.8)]">
@@ -385,13 +380,13 @@ function SideNavPanel() {
       </div>
 
       <div className="flex border-b border-[#39FF14]/10">
-        {(['layers', 'vision', 'weather', 'time'] as const).map((section) => (
+        {(['layers', 'vision', 'weather', 'time', 'measurements'] as const).map((section) => (
           <button
             key={section}
             type="button"
             onClick={() => setActiveSection(section)}
             className={cn(
-              'flex-1 py-2 text-[10px] font-headline uppercase tracking-wider transition-colors',
+              'flex-1 px-1 py-2 text-[8px] font-headline uppercase transition-colors',
               activeSection === section ? 'border-b-2 border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]' : 'text-neutral-500 hover:text-[#39FF14]/70'
             )}
           >
@@ -408,9 +403,11 @@ function SideNavPanel() {
                 <button
                   key={layer.id}
                   type="button"
+                  disabled={(layer.id === 'dark' || layer.id === 'positron') && !process.env.NEXT_PUBLIC_CARTO_KEY}
+                  title={(layer.id === 'dark' || layer.id === 'positron') && !process.env.NEXT_PUBLIC_CARTO_KEY ? 'Requires a CARTO API key' : undefined}
                   onClick={() => setPreferences({ basemap: layer.id })}
                   className={cn(
-                    'flex w-full items-center gap-3 px-3 py-3 transition-all',
+                    'flex w-full items-center gap-3 px-3 py-3 transition-all disabled:opacity-40',
                     basemap === layer.id ? 'border-l-2 border-[#39FF14] bg-[#262626] text-[#39FF14]' : 'text-neutral-400 hover:bg-[#262626]/50 hover:text-[#39FF14]/70'
                   )}
                 >
@@ -442,6 +439,7 @@ function SideNavPanel() {
 
           {activeSection === 'weather' && <WeatherSection />}
           {activeSection === 'time' && <TimeSection />}
+          {activeSection === 'measurements' && <MeasurementsPanel />}
         </div>
       </ScrollArea>
 
@@ -467,7 +465,12 @@ function SideNavPanel() {
 export default function EarthExplorer() {
   const [cursorCoords, setCursorCoords] = useState<Coordinates | null>(null);
   const [cameraHeight, setCameraHeight] = useState(20000000);
-  const [fps, setFps] = useState(60);
+  const [fps, setFps] = useState(0);
+  const message = useEarthStore(state => state.message);
+
+  useEffect(() => {
+    if (message) { toast.error(message); useEarthStore.getState().setMessage(null); }
+  }, [message]);
 
   useEffect(() => {
     const handleCoords = (event: Event) => {

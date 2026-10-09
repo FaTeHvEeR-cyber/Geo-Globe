@@ -1,10 +1,8 @@
 import { create } from 'zustand';
-import type { FeatureCollection } from 'geojson';
 import { defaults, type SavedState, type CameraView, type SavedMarker } from '@/lib/earth/persistence';
 import type { SurfacePoint } from '@/lib/earth/measurements';
 
-export type Tool = 'none' | 'pin' | 'distance' | 'area';
-export interface ImportedLayer { id: string; name: string; data: FeatureCollection; color: string; visible: boolean }
+export type Tool = 'none' | 'distance' | 'area';
 interface State extends SavedState {
   hydrated: boolean;
   message: string | null;
@@ -12,7 +10,6 @@ interface State extends SavedState {
   points: SurfacePoint[];
   completed: boolean;
   cursor: SurfacePoint | null;
-  imports: ImportedLayer[];
   playing: boolean;
   speed: number;
   setPreferences: (patch: Partial<Pick<SavedState, 'basemap' | 'vision' | 'dayNight'>>) => void;
@@ -26,12 +23,9 @@ interface State extends SavedState {
   clearMeasurement: () => void;
   addMarker: (marker: SavedMarker) => void;
   removeMarker: (id: string) => void;
-  addImport: (layer: ImportedLayer) => void;
-  updateImport: (id: string, patch: Partial<Pick<ImportedLayer, 'visible' | 'color'>>) => void;
-  removeImport: (id: string) => void;
 }
 export const useEarthStore = create<State>((set, get) => ({
-  ...defaults, hydrated: false, message: null, tool: 'none', points: [], completed: false, cursor: null, imports: [], playing: false, speed: 60,
+  ...defaults, hydrated: false, message: null, tool: 'none', points: [], completed: false, cursor: null, playing: false, speed: 60,
   setPreferences: patch => set(patch),
   hydrate: value => set({ ...value, hydrated: true }),
   setCamera: camera => set({ camera }),
@@ -58,9 +52,6 @@ export const useEarthStore = create<State>((set, get) => ({
     set(state => ({ markers: [...state.markers, marker] }));
   },
   removeMarker: id => set(state => ({ markers: state.markers.filter(m => m.id !== id) })),
-  addImport: layer => set(state => ({ imports: [...state.imports, layer] })),
-  updateImport: (id, patch) => set(state => ({ imports: state.imports.map(layer => layer.id === id ? { ...layer, ...patch } : layer) })),
-  removeImport: id => set(state => ({ imports: state.imports.filter(layer => layer.id !== id) })),
 }));
 export function savedState(state: State): SavedState {
   return { version: 1, basemap: state.basemap, vision: state.vision, dayNight: state.dayNight, camera: state.camera, markers: state.markers };

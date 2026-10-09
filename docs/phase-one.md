@@ -1,26 +1,23 @@
-# Geo-Globe Phase 1
+# Geo-Globe retained baseline
 
-## Development
+The optional Phase 1 expansion has been rolled back at the user's request. The current committed TERRA_COMMAND interface and intervening user edits are preserved, with Measurements added immediately after Time. Git history and README are unchanged.
 
-Use Node 22 and npm. Run `npm ci`, `npm run dev`. For a production smoke test run `npm run build` then `npm start`. `npm run assets:cesium` synchronizes Workers, ThirdParty, Assets, and Widgets from the npm-locked Cesium version. The viewer imports the same package, and assets are served locally at `/cesium/`. No CDN Cesium or Bun is used. Build errors are no longer ignored. Prisma generation creates client code only; this phase does not migrate or access the database.
+## Retained
 
-## Product scope
+- Windows-compatible Node 22/npm scripts, local matching Cesium assets, strict build checks, client-bundle syntax verification, and existing security/build fixes.
+- Viewer lifecycle cleanup, focused keyboard navigation, recovery UI, provider attribution, and working basemap/vision/time controls.
+- Validated browser-local pins and preferences. This is not cloud synchronization.
+- Distance and polygon area measurements using Turf spherical math. Click to add points, Enter/double-click to complete, Escape to cancel with the globe focused. Completed results remain until cleared or a new measurement starts.
+- Existing legacy-template cleanup.
 
-- OpenStreetMap default, local Natural Earth fallback. CARTO styles are disabled until `NEXT_PUBLIC_CARTO_KEY` is configured. No default Ion token or unverified satellite provider. Keep attribution visible, including on screenshots.
-- Pins, basemap, vision effect, lighting toggle, and camera position/orientation persist to browser storage. Backups use schema version 1, merge pins by ID, and replace view settings. Storage failures report an alert; backups are the durable recovery path.
-- Distance and polygon area use Turf spherical math in meters and square meters. Dateline longitudes are unwrapped for area. Measurements exclude terrain height. Use simple polygons smaller than a hemisphere; polar caps, self-intersections and survey accuracy are outside this phase. Complete with Enter/double-click, cancel with Escape; keyboard actions require globe focus. Completed measurements export as GeoJSON, including a closed polygon ring.
-- GeoJSON imports are browser-local and transient. Accept FeatureCollections with Point/MultiPoint, LineString/MultiLineString, Polygon/MultiPolygon. Reject null/unsupported geometries, malformed coordinates, custom CRS and unclosed rings. Polygon holes remain supported. Properties are excluded from rendering to prevent HTML/URL interpretation.
-- Parsing/validation uses a worker. Initial conservative limits: 10 MiB, 2,000 features, 50,000 vertices per file; three layers. These are guardrails, not a 60 FPS guarantee. Measure representative datasets on target devices before increasing them.
-- Pins, measurements and imported layers use independent Cesium data sources. Basemap switches never recreate the viewer.
-- Vision modes are visual effects, not thermal sensor observations. Day/night animation is tied to the Cesium clock. Weather is requested manually through Open-Meteo, with a bounded cache and timeout. The previous cloud/radar approximation and inactive provider buttons are removed.
-- The dark green interface is retained with functional tools, keyboard labels/focus outlines and a collapsible mobile sidebar. Placeholder navigation and telemetry actions are removed.
+Measurements exclude terrain height. Use simple polygons smaller than a hemisphere; polar caps, self-intersections and survey accuracy are outside the supported scope.
 
-## Verification
+## Removed expansion
 
-Run `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`. Tests cover known spherical distances/areas, high latitude and dateline behavior, supported geometry types, malformed coordinates/rings, complexity limits, unsafe properties, and backup schema validation.
+GeoJSON file imports/workers and their test fixtures, screenshot capture, import/backup/export controls, pin-management tools, and the replacement Phase 1 interface. Original decorative controls remain as they were; they are not newly implemented features. The incorrectly wired Cloud Layer switch was removed because it toggled day/night lighting, which is available under Time.
 
-Browser acceptance: initialize; pan/tilt/zoom/Home; type WASDQE in search and pin names without moving camera; add/rename/reload/remove pins; draw distance and area; complete/cancel/clear; switch basemap and vision with independent overlays; upload valid/invalid GeoJSON; change color/visibility; restore preferences after reload; export/import backup; capture screenshot with attribution; verify narrow viewport and viewer recovery.
+## Development and verification
 
-## Deployment and Phase 2
+Run `npm ci`, then `npm run dev` on port 3000. Run `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` for verification. The build synchronizes Cesium assets and generates the Prisma client; it does not migrate the database. Tests cover spherical measurements and saved-state validation.
 
-No deployment, Git push, database branch, migration, or environment-secret change is included. Before deployment verify Vercel uses npm, the committed lockfile and Node 22, and set its build command to `npm run build` so asset synchronization is not skipped. Current Vercel commit/region and Neon branch ownership remain user-reported. Before cloud-sync work verify authenticated Neon access and establish an isolated dev branch. Authentication, owned database records, saved cloud polygons/analysis, and sync conflict handling belong to Phase 2.
+No deployment, Git push, database migration, or cloud-sync implementation is included.

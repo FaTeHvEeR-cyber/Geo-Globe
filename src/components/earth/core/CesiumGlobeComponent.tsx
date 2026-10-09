@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import * as C from 'cesium';
 import { useEarthStore } from '@/store/earth';
 import { thermalShader, wireframeShader } from '@/lib/earth/shaders';
-import { captureGlobe } from '@/lib/earth/screen-capture';
 import { cameraSchema } from '@/lib/earth/persistence';
 import type { SurfacePoint } from '@/lib/earth/measurements';
 
@@ -19,13 +18,11 @@ export default function CesiumGlobeComponent() {
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [fps, setFps] = useState(0);
 
   useEffect(() => {
     if (!container.current || !hydrated) return;
     let viewer: C.Viewer | undefined;
     let disposed = false;
-    let importGeneration = 0;
     const cleanup: (() => void)[] = [];
     const report = (message: string) => { if (!disposed) useEarthStore.getState().setMessage(message); };
     try {
@@ -51,7 +48,6 @@ export default function CesiumGlobeComponent() {
       let base: C.ImageryLayer | undefined;
       let baseErrorCleanup: (() => void) | undefined;
       let stage: C.PostProcessStage | undefined;
-      let imported: C.GeoJsonDataSource[] = [];
 
       const syncBase = () => {
         const { basemap } = useEarthStore.getState();
@@ -116,33 +112,13 @@ export default function CesiumGlobeComponent() {
         if (tool === 'area' && positions.length > 2) measurement.entities.add({ polygon: { hierarchy: new C.PolygonHierarchy(positions), material: C.Color.YELLOW.withAlpha(0.2), height: 0 } });
         v.scene.requestRender();
       };
-      const syncImports = async () => {
-        const generation = ++importGeneration;
-        const next: C.GeoJsonDataSource[] = [];
-        try {
-          for (const layer of useEarthStore.getState().imports) {
-            const color = C.Color.fromCssColorString(layer.color);
-            const source = await C.GeoJsonDataSource.load(layer.data, { stroke: color, fill: color.withAlpha(0.25), markerColor: color, strokeWidth: 3, clampToGround: true, describe: () => '' });
-            if (disposed || generation !== importGeneration) return;
-            source.name = layer.name;
-            source.show = layer.visible;
-            next.push(source);
-          }
-          if (disposed || generation !== importGeneration) return;
-          for (const source of imported) v.dataSources.remove(source, true);
-          imported = next;
-          for (const source of next) await v.dataSources.add(source);
-          v.scene.requestRender();
-        } catch { report('Could not render this GeoJSON layer. Try a smaller or simpler file.'); }
-      };
-      syncBase(); syncVision(); syncTime(); syncPins(); syncMeasurement(); void syncImports();
+      syncBase(); syncVision(); syncTime(); syncPins(); syncMeasurement();
       cleanup.push(useEarthStore.subscribe((state, previous) => {
         if (state.basemap !== previous.basemap) syncBase();
         if (state.vision !== previous.vision) syncVision();
         if (state.dayNight !== previous.dayNight || state.playing !== previous.playing || state.speed !== previous.speed) syncTime();
         if (state.markers !== previous.markers) syncPins();
         if (state.points !== previous.points || state.tool !== previous.tool || state.completed !== previous.completed || (state.cursor !== previous.cursor && state.points.length && !state.completed)) syncMeasurement();
-        if (state.imports !== previous.imports) void syncImports();
       }));
       cleanup.push(() => baseErrorCleanup?.());
       const pick = (screen: C.Cartesian2): SurfacePoint | null => {
@@ -156,19 +132,23 @@ export default function CesiumGlobeComponent() {
       handler.setInputAction((event: { endPosition: C.Cartesian2 }) => {
         if (performance.now() - lastPointer < 50) return;
         lastPointer = performance.now();
-        useEarthStore.getState().setCursor(pick(event.endPosition));
+        const coordinates = pick(event.endPosition);
+        useEarthStore.getState().setCursor(coordinates);
+        if (coordinates) window.dispatchEvent(new CustomEvent('globeCoordinates', { detail: coordinates }));
       }, C.ScreenSpaceEventType.MOUSE_MOVE);
       handler.setInputAction((event: { position: C.Cartesian2 }) => {
         v.canvas.focus({ preventScroll: true });
         const p = pick(event.position);
         if (!p) return;
         const state = useEarthStore.getState();
-        if (state.tool === 'pin') {
-          state.addMarker({ id: crypto.randomUUID(), name: `Pin ${state.markers.length + 1}`, coordinates: { ...p, altitude: 0 } });
-          state.startTool('none');
-        } else state.addPoint(p);
+        state.addPoint(p);
       }, C.ScreenSpaceEventType.LEFT_CLICK);
-      handler.setInputAction(() => useEarthStore.getState().complete(), C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+      handler.setInputAction((event: { position: C.Cartesian2 }) => {
+        const state = useEarthStore.getState();
+        if (state.tool !== 'none') { state.complete(); return; }
+        const p = pick(event.position);
+        if (p) state.addMarker({ id: crypto.randomUUID(), name: `${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}`, coordinates: { ...p, altitude: 0 } });
+      }, C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
       cleanup.push(() => handler.destroy());
       const keydown = (event: KeyboardEvent) => {
         if (document.activeElement !== v.canvas || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -194,7 +174,10 @@ export default function CesiumGlobeComponent() {
       const saveCamera = () => {
         const p = v.camera.positionCartographic;
         const parsed = cameraSchema.safeParse({ longitude: C.Math.toDegrees(p.longitude), latitude: C.Math.toDegrees(p.latitude), height: p.height, heading: v.camera.heading, pitch: v.camera.pitch, roll: v.camera.roll });
-        if (parsed.success) useEarthStore.getState().setCamera(parsed.data);
+        if (parsed.success) {
+          useEarthStore.getState().setCamera(parsed.data);
+          window.dispatchEvent(new CustomEvent('globeCameraHeight', { detail: parsed.data.height }));
+        }
       };
       cleanup.push(v.camera.moveEnd.addEventListener(saveCamera));
       saveCamera();
@@ -205,16 +188,13 @@ export default function CesiumGlobeComponent() {
       };
       window.addEventListener('flyToLocation', fly);
       cleanup.push(() => window.removeEventListener('flyToLocation', fly));
-      const capture = () => captureGlobe(v, report);
-      window.addEventListener('captureGlobe', capture);
-      cleanup.push(() => window.removeEventListener('captureGlobe', capture));
       const contextLost = (event: Event) => { event.preventDefault(); setError('The graphics context was lost. Reload the viewer to continue.'); };
       v.canvas.addEventListener('webglcontextlost', contextLost);
       cleanup.push(() => v.canvas.removeEventListener('webglcontextlost', contextLost));
       cleanup.push(v.scene.renderError.addEventListener(() => setError('The globe stopped rendering. Reload the viewer to recover.')));
       let frames = 0;
       cleanup.push(v.scene.postRender.addEventListener(() => { frames++; }));
-      const timer = window.setInterval(() => { setFps(frames); frames = 0; }, 1000);
+      const timer = window.setInterval(() => { window.dispatchEvent(new CustomEvent('globeFps', { detail: frames })); frames = 0; }, 1000);
       cleanup.push(() => clearInterval(timer));
       const firstFrame = v.scene.postRender.addEventListener(() => { setReady(true); firstFrame(); });
       cleanup.push(firstFrame);
@@ -222,7 +202,7 @@ export default function CesiumGlobeComponent() {
       queueMicrotask(() => { if (!disposed) setError(cause instanceof Error ? cause.message : 'Could not initialize WebGL2.'); });
     }
     return () => {
-      disposed = true; importGeneration++;
+      disposed = true;
       cleanup.reverse().forEach(remove => remove());
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
     };
@@ -230,7 +210,6 @@ export default function CesiumGlobeComponent() {
 
   return <div className="relative h-full w-full">
     <div ref={container} className="h-full w-full" />
-    {ready && !error && <div className="pointer-events-none absolute top-3 left-3 hidden bg-black/70 px-2 py-1 text-xs text-green-300 sm:block">{fps} rendered frames/s · idle rendering pauses</div>}
     {!ready && !error && <div role="status" className="absolute inset-0 grid place-items-center bg-black text-green-300">Loading globe…</div>}
     {error && <div role="alert" className="absolute inset-0 grid place-items-center bg-slate-950/95 p-6"><div className="max-w-md space-y-4"><h2 className="text-xl">Globe unavailable</h2><p>{error}</p><button className="control" onClick={() => { setError(null); setReady(false); setAttempt(n => n + 1); }}>Reload Viewer</button></div></div>}
   </div>;
