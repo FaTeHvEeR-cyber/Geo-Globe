@@ -31,12 +31,10 @@ import {
   Mountain,
   Pause,
   Play,
-  Radio,
   RefreshCw,
   Rewind,
   Search,
   Settings2,
-  Signal,
   Satellite,
   Thermometer,
   Terminal,
@@ -559,18 +557,6 @@ export default function EarthExplorer() {
         <div className="flex h-full cursor-pointer flex-col items-center justify-center bg-[#39FF14] px-6 text-black transition-all active:scale-90">
           <Crosshair className="h-4 w-4" />
           <span className="text-[8px] font-headline font-bold tracking-widest">POSITION</span>
-        </div>
-        <div className="flex h-full cursor-pointer flex-col items-center justify-center px-6 text-[#39FF14]/50 transition-all hover:bg-[#39FF14]/5 active:scale-90">
-          <Activity className="h-4 w-4" />
-          <span className="text-[8px] font-headline font-bold tracking-widest">TELEMETRY</span>
-        </div>
-        <div className="flex h-full cursor-pointer flex-col items-center justify-center px-6 text-[#39FF14]/50 transition-all hover:bg-[#39FF14]/5 active:scale-90">
-          <Signal className="h-4 w-4" />
-          <span className="text-[8px] font-headline font-bold tracking-widest">SIGNAL</span>
-        </div>
-        <div className="flex h-full cursor-pointer flex-col items-center justify-center px-6 text-[#39FF14]/50 transition-all hover:bg-[#39FF14]/5 active:scale-90">
-          <Radio className="h-4 w-4" />
-          <span className="text-[8px] font-headline font-bold tracking-widest">UPLINK</span>
         </div>
       </footer>
 
